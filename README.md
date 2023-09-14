@@ -1,3 +1,3 @@
 # jx
 
-A JSON viewer for the terminal
+An interactive JSON explorer for the command line
