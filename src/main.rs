@@ -1,53 +1,92 @@
+use anyhow::{Context, Result};
+use args::Args;
 use clap::Parser;
+use core::Core;
+use crossterm::{execute, queue, terminal};
+use events::{Action::*, Direction::*};
 use serde_json::Value;
-use std::{
-    error::Error,
-    fs::File,
-    io::BufReader,
-    path::{Path, PathBuf},
-};
+use std::fs::File;
+use std::io::BufReader;
+use std::io::{self, Write};
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    #[arg(value_parser = validate_path)]
-    path: Option<PathBuf>,
-}
+mod args;
+mod core;
+mod events;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     // parse args
     let args = Args::parse();
-    let json: Value;
 
-    if let Some(path) = args.path {
+    let json: Value = if let Some(path) = args.path {
         // read from file
-        let file = File::open(path)?;
+        let file = File::open(path.clone())?;
         let reader = BufReader::new(file);
 
-        json = serde_json::from_reader(reader)?;
+        serde_json::from_reader(reader)
+            .context(format!("Error parsing JSON from file {}", path.display()))?
     } else {
         // read from stdin
-        let stdin = std::io::stdin();
+        let stdin = io::stdin();
         let reader = stdin.lock();
 
-        json = serde_json::from_reader(reader)?;
-    }
+        serde_json::from_reader(reader).context("Could not parse JSON from stdin")?
+    };
 
-    println!("{}", json);
+    run(json)?;
 
     Ok(())
 }
 
-fn validate_path(file: &str) -> Result<PathBuf, String> {
-    let path = Path::new(file);
+fn run(json: Value) -> Result<(), io::Error> {
+    let mut stdout = io::stdout();
 
-    if !path.exists() {
-        return Err(format!("Path {} does not exist", file));
+    let size = terminal::size()?;
+
+    let mut obj = Core::new(json.clone(), size);
+
+    execute!(stdout, terminal::EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+
+    loop {
+        let mut changed = false;
+        match events::user_event()? {
+            Quit => break,
+            Move(direction) => {
+                changed = match direction {
+                    Up => obj.go_prev(),
+                    Down => obj.go_next(),
+                    Left => obj.go_out(),
+                    Right => obj.go_in(),
+                }
+            }
+            Fold => {
+                todo!();
+            }
+            Scroll(direction) => {
+                changed = match direction {
+                    Up => todo!(),
+                    Down => todo!(),
+                    _ => false,
+                }
+            }
+            Resize(w, h) => {
+                obj.view.resize((w, h));
+                changed = true;
+            }
+            _ => {}
+        }
+
+        if changed {
+            redraw(&mut stdout, &obj)?;
+            stdout.flush()?;
+        }
     }
 
-    if !path.is_file() {
-        return Err(format!("Path {} is not a file", file));
-    }
+    execute!(stdout, terminal::LeaveAlternateScreen)?;
 
-    Ok(path.to_owned())
+    terminal::disable_raw_mode()
+}
+
+fn redraw(stdout: &mut io::Stdout, obj: &Core) -> Result<(), io::Error> {
+    todo!()
 }
