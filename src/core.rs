@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde_json::Value;
 
 #[derive(Debug, Default)]
@@ -18,23 +19,35 @@ impl View {
     }
 }
 
+fn repr(value: &Value) -> Result<String> {
+    // TODO: make this 1000x more complicated
+    serde_json::to_string_pretty(value).map_err(|e| e.into())
+}
+
 #[derive(Debug, Default)]
 /// Core struct providing application state
 ///
 /// * `value`: the JSON value
 /// * `pointer`: the path to the current active node in the value object
+/// * `view`: the current view size and scroll position
 pub struct Core {
-    pub value: Value,
-    pub pointer: Vec<String>,
+    value: Value,
+    pointer: Vec<String>,
     pub view: View,
+    pub repr: String,
 }
 impl Core {
     pub fn new(value: Value, size: (u16, u16)) -> Self {
         Self {
-            value,
+            value: value.clone(),
             pointer: vec![], // start at root
             view: View::new(size),
+            repr: repr(&value).unwrap(),
         }
+    }
+
+    pub fn resize(&mut self, size: (u16, u16)) {
+        self.view.resize(size);
     }
 
     /// Moves the cursor to the 1st element of an object or array.
@@ -90,10 +103,6 @@ impl Core {
         println!("pointer_str: {:?}", s);
 
         s
-    }
-
-    pub fn depth(&self) -> usize {
-        self.pointer.len()
     }
 
     pub fn pointer_value(&self, idx: Option<usize>) -> Option<&Value> {
