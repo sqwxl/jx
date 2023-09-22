@@ -12,7 +12,7 @@ pub enum Action {
     Quit,
     Move(Direction),
     Scroll(Direction),
-    Resize(u16, u16),
+    Resize(usize, usize),
     Fold,
     Ignore,
 }
@@ -75,7 +75,7 @@ pub fn user_event() -> std::io::Result<Action> {
             kind: _,
             state: _,
         }) => Ok(Scroll(Down)),
-        Event::Resize(w, h) => Ok(Resize(w, h)),
+        Event::Resize(w, h) => Ok(Resize(w as usize, h as usize)),
         _ => Ok(Ignore),
     }
 }

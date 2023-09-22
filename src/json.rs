@@ -1,53 +1,19 @@
-use anyhow::Result;
-use serde_json::Value;
+use crossterm::style::Color;
+use serde_json::{Map, Value};
 
-#[derive(Debug, Default)]
-pub struct View {
-    pub size: (u16, u16),
-    pub scroll: (u16, u16),
-}
-impl View {
-    pub fn new(size: (u16, u16)) -> Self {
-        Self {
-            size,
-            scroll: (0, 0),
-        }
-    }
-
-    pub fn resize(&mut self, size: (u16, u16)) {
-        self.size = size;
-    }
+use crate::tui::screen::Style;
+/// A JSON value with a pointer to the current active node.
+pub struct Json {
+    pub value: Value,
+    pub pointer: Vec<String>,
 }
 
-fn repr(value: &Value) -> Result<String> {
-    // TODO: make this 1000x more complicated
-    serde_json::to_string_pretty(value).map_err(|e| e.into())
-}
-
-#[derive(Debug, Default)]
-/// Core struct providing application state
-///
-/// * `value`: the JSON value
-/// * `pointer`: the path to the current active node in the value object
-/// * `view`: the current view size and scroll position
-pub struct Core {
-    value: Value,
-    pointer: Vec<String>,
-    pub view: View,
-    pub repr: String,
-}
-impl Core {
-    pub fn new(value: Value, size: (u16, u16)) -> Self {
+impl Json {
+    pub fn new(value: Value) -> Self {
         Self {
             value: value.clone(),
             pointer: vec![], // start at root
-            view: View::new(size),
-            repr: repr(&value).unwrap(),
         }
-    }
-
-    pub fn resize(&mut self, size: (u16, u16)) {
-        self.view.resize(size);
     }
 
     /// Moves the cursor to the 1st element of an object or array.
@@ -100,14 +66,11 @@ impl Core {
             s.push('/');
             s.push_str(p);
         }
-        println!("pointer_str: {:?}", s);
-
         s
     }
 
     pub fn pointer_value(&self, idx: Option<usize>) -> Option<&Value> {
         let v = self.value.pointer(&self.pointer_str(idx));
-        println!("pointer_value: {:?}", v);
         v
     }
 
@@ -145,6 +108,7 @@ impl Core {
         None
     }
 
+    #[allow(dead_code)]
     /// Gets the last child of an object or array (the key or index, not the value itself)
     pub fn last_child(&self, idx: Option<usize>) -> Option<String> {
         if let Some(v) = self.pointer_value(idx) {
@@ -212,6 +176,98 @@ impl Core {
         }
         None
     }
+
+    pub fn style_json(&self) -> Vec<(Style, String)> {
+        Styler::style_json(&self.value, &self.pointer)
+    }
+}
+
+const INDENT: &str = "  ";
+const STYLE_ACTIVE: Style = Style(Color::Black, Color::Green);
+pub const STYLE_INACTIVE: Style = Style(Color::White, Color::Black);
+
+struct Styler {
+    pointer: Vec<String>,
+    output: Vec<(Style, String)>,
+    indent: usize,
+    path: Vec<String>,
+    style: Style,
+}
+impl Styler {
+    fn new(pointer: &[String]) -> Self {
+        Self {
+            pointer: pointer.to_vec(),
+            output: Vec::new(),
+            indent: 0,
+            path: Vec::new(),
+            style: STYLE_INACTIVE,
+        }
+    }
+
+    /// Converts a JSON Value and a pointer to a vector of (Style, String) tuples
+    fn style_json(value: &Value, pointer: &[String]) -> Vec<(Style, String)> {
+        let mut s = Self::new(pointer);
+
+        s.style_json_recursive(value);
+
+        s.output
+    }
+
+    fn style_json_recursive(&mut self, json: &Value) {
+        self.style = self.match_pointer_style(); // match with root
+        match json {
+            Value::Object(map) => self.style_map(map),
+            Value::Array(arr) => self.style_array(arr),
+            _ => self.style_primitive(json),
+        }
+    }
+
+    fn style_map(&mut self, map: &Map<String, Value>) {
+        self.push("{");
+        self.indent += 1;
+        for (idx, (key, value)) in map.iter().enumerate() {
+            if idx == 0 {
+                self.path.push(key.to_owned());
+            } else {
+                *self.path.last_mut().unwrap() = key.to_owned();
+            }
+            self.style_json_recursive(value);
+        }
+        self.indent -= 1;
+        self.push("}");
+    }
+
+    fn style_array(&mut self, array: &[Value]) {
+        self.push("[");
+        self.indent += 1;
+        for (idx, value) in array.iter().enumerate() {
+            if idx == 0 {
+                self.path.push(idx.to_string());
+            } else {
+                *self.path.last_mut().unwrap() = idx.to_string();
+            }
+            self.style_json_recursive(value);
+        }
+        self.indent -= 1;
+        self.push("]");
+    }
+
+    fn style_primitive(&mut self, value: &Value) {
+        self.push(value.to_string().as_str())
+    }
+
+    fn push(&mut self, s: &str) {
+        self.output
+            .push((self.style, format!("{}{}", INDENT.repeat(self.indent), s)));
+    }
+
+    fn match_pointer_style(&self) -> Style {
+        if self.path == self.pointer {
+            STYLE_ACTIVE
+        } else {
+            STYLE_INACTIVE
+        }
+    }
 }
 
 #[cfg(test)]
@@ -238,8 +294,8 @@ mod tests {
         serde_json::from_str(J).unwrap()
     }
 
-    fn get_state() -> Core {
-        Core::new(get_json_value(), (80, 24))
+    fn get_state() -> Json {
+        Json::new(get_json_value())
     }
 
     #[test]
@@ -268,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_move_on_primitive() {
-        let mut state = Core::new(json!("foo"), (80, 24));
+        let mut state = Json::new(json!("foo"));
         state.go_in();
         assert_eq!(state.pointer.len(), 0);
         state.go_out();
