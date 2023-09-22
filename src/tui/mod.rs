@@ -1,6 +1,7 @@
 use crate::events::Action::*;
 use crate::events::Direction::*;
 use crate::json::Json;
+use crate::json::StyledStr;
 use crossterm::terminal;
 
 use self::screen::Screen;
@@ -67,11 +68,29 @@ impl Tui {
 
             if needs_redraw {
                 self.draw_tree();
+                self.draw_pointer();
                 self.screen.render()?;
             }
         }
 
         Ok(())
+    }
+
+    fn draw_pointer(&mut self) {
+        let y = self.h - 1;
+        self.screen.draw(
+            0,
+            y,
+            &StyledStr {
+                style: crate::json::STYLE_POINTER,
+                text: self
+                    .json
+                    .pointer
+                    .iter()
+                    .map(|s| format!("/\"{}\"", s))
+                    .collect(),
+            },
+        );
     }
 
     fn draw_tree(&mut self) {

@@ -183,7 +183,8 @@ impl Json {
 }
 
 pub const STYLE_INACTIVE: Style = Style(Color::White, Color::Black);
-const STYLE_ACTIVE: Style = Style(Color::Black, Color::White);
+pub const STYLE_ACTIVE: Style = Style(Color::Black, Color::White);
+pub const STYLE_POINTER: Style = STYLE_INACTIVE;
 
 #[derive(Clone, Debug)]
 pub struct StyledStr {
@@ -197,7 +198,6 @@ struct Styler {
     output: Vec<(usize, StyledStr)>,
     depth: usize,
     path: Vec<String>,
-    style: Style,
 }
 
 impl Styler {
@@ -208,7 +208,6 @@ impl Styler {
             output: Vec::new(),
             depth: 0,
             path: Vec::new(),
-            style: STYLE_INACTIVE,
         }
     }
 
@@ -231,7 +230,7 @@ impl Styler {
         self.output.push((
             self.depth,
             StyledStr {
-                style: self.style,
+                style: self.match_pointer_style(),
                 text,
             },
         ));
@@ -244,13 +243,11 @@ impl Styler {
     }
 
     fn style_json_recursive(&mut self, json: &Value) {
-        self.style = self.match_pointer_style(); // match with root
         match json {
             Value::Object(map) => self.style_map(map),
             Value::Array(arr) => self.style_array(arr),
             _ => self.style_primitive(json),
         }
-        self.style = self.match_pointer_style(); // match with root
     }
 
     fn style_map(&mut self, map: &Map<String, Value>) {
