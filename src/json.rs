@@ -177,40 +177,70 @@ impl Json {
         None
     }
 
-    pub fn style_json(&self) -> Vec<(Style, String)> {
+    pub fn style_json(&self) -> Vec<(usize, StyledStr)> {
         Styler::style_json(&self.value, &self.pointer)
     }
 }
 
-const INDENT: &str = "  ";
-const STYLE_ACTIVE: Style = Style(Color::Black, Color::Green);
 pub const STYLE_INACTIVE: Style = Style(Color::White, Color::Black);
+const STYLE_ACTIVE: Style = Style(Color::Black, Color::White);
+
+#[derive(Clone, Debug)]
+pub struct StyledStr {
+    pub style: Style,
+    pub text: String,
+}
 
 struct Styler {
     pointer: Vec<String>,
-    output: Vec<(Style, String)>,
-    indent: usize,
+    prefix: Option<String>,
+    output: Vec<(usize, StyledStr)>,
+    depth: usize,
     path: Vec<String>,
     style: Style,
 }
+
 impl Styler {
     fn new(pointer: &[String]) -> Self {
         Self {
             pointer: pointer.to_vec(),
+            prefix: None,
             output: Vec::new(),
-            indent: 0,
+            depth: 0,
             path: Vec::new(),
             style: STYLE_INACTIVE,
         }
     }
 
     /// Converts a JSON Value and a pointer to a vector of (Style, String) tuples
-    fn style_json(value: &Value, pointer: &[String]) -> Vec<(Style, String)> {
+    fn style_json(value: &Value, pointer: &[String]) -> Vec<(usize, StyledStr)> {
         let mut s = Self::new(pointer);
 
         s.style_json_recursive(value);
 
         s.output
+    }
+
+    fn push_str(&mut self, text: &str) {
+        let mut text = text.to_owned();
+        if let Some(prefix) = &self.prefix {
+            text = format!("{}{}", prefix, text);
+            self.prefix = None;
+        }
+
+        self.output.push((
+            self.depth,
+            StyledStr {
+                style: self.style,
+                text,
+            },
+        ));
+    }
+
+    fn append_str(&mut self, text: &str) {
+        if let Some((_, last)) = self.output.last_mut() {
+            last.text.push_str(text);
+        }
     }
 
     fn style_json_recursive(&mut self, json: &Value) {
@@ -220,26 +250,36 @@ impl Styler {
             Value::Array(arr) => self.style_array(arr),
             _ => self.style_primitive(json),
         }
+        self.style = self.match_pointer_style(); // match with root
     }
 
     fn style_map(&mut self, map: &Map<String, Value>) {
-        self.push("{");
-        self.indent += 1;
+        self.push_str("{\n");
+        self.depth += 1;
         for (idx, (key, value)) in map.iter().enumerate() {
             if idx == 0 {
                 self.path.push(key.to_owned());
             } else {
                 *self.path.last_mut().unwrap() = key.to_owned();
             }
+            self.prefix = Some(format!("\"{}\": ", key));
             self.style_json_recursive(value);
+            if idx < map.len() - 1 {
+                self.append_str(",\n");
+            } else {
+                self.append_str("\n");
+            }
         }
-        self.indent -= 1;
-        self.push("}");
+        if !map.is_empty() {
+            self.path.pop();
+        }
+        self.depth -= 1;
+        self.push_str("}\n");
     }
 
     fn style_array(&mut self, array: &[Value]) {
-        self.push("[");
-        self.indent += 1;
+        self.push_str("[\n");
+        self.depth += 1;
         for (idx, value) in array.iter().enumerate() {
             if idx == 0 {
                 self.path.push(idx.to_string());
@@ -247,22 +287,25 @@ impl Styler {
                 *self.path.last_mut().unwrap() = idx.to_string();
             }
             self.style_json_recursive(value);
+            if idx < array.len() - 1 {
+                self.append_str(",\n");
+            } else {
+                self.append_str("\n");
+            }
         }
-        self.indent -= 1;
-        self.push("]");
+        if !array.is_empty() {
+            self.path.pop();
+        }
+        self.depth -= 1;
+        self.push_str("]\n");
     }
 
     fn style_primitive(&mut self, value: &Value) {
-        self.push(value.to_string().as_str())
-    }
-
-    fn push(&mut self, s: &str) {
-        self.output
-            .push((self.style, format!("{}{}", INDENT.repeat(self.indent), s)));
+        self.push_str(value.to_string().as_str())
     }
 
     fn match_pointer_style(&self) -> Style {
-        if self.path == self.pointer {
+        if self.path.starts_with(&self.pointer) {
             STYLE_ACTIVE
         } else {
             STYLE_INACTIVE

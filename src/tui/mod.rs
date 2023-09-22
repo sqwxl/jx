@@ -7,6 +7,8 @@ use self::screen::Screen;
 
 pub mod screen;
 
+const INDENT: usize = 2;
+
 pub struct Tui {
     json: Json,
     screen: Screen,
@@ -35,7 +37,7 @@ impl Tui {
             match crate::events::user_event()? {
                 Quit => {
                     break;
-                },
+                }
                 Move(direction) => {
                     needs_redraw = match direction {
                         Up => self.json.go_prev(),
@@ -73,16 +75,19 @@ impl Tui {
     }
 
     fn draw_tree(&mut self) {
- 
         let styled = self.json.style_json();
+        self.screen.clear(None);
 
-        for (y, styled_str) in styled.into_iter().enumerate() {
+        let mut y = 0;
+        for (depth, styled_str) in styled {
             if y >= self.h {
                 break;
             }
-
-            self.screen.draw((0, y), &styled_str);
+            let x = depth * INDENT;
+            self.screen.draw(x, y, &styled_str);
+            if styled_str.text.ends_with('\n') {
+                y += 1;
+            }
         }
-     
     }
 }

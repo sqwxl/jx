@@ -1,13 +1,15 @@
-use crossterm::{cursor, execute, queue, style, terminal};
+use crossterm::{cursor, execute, queue, terminal};
 use std::io::{stdout, BufWriter, Stdout, Write};
 
+use crate::json::StyledStr;
+
 /// Foreground & Background
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Style(pub crossterm::style::Color, pub crossterm::style::Color);
 
 pub struct Screen {
     out: BufWriter<Stdout>,
-    buf: Vec<Option<(Style, String)>>,
+    buf: Vec<Option<(Style, char)>>,
     w: usize,
     h: usize,
 }
@@ -22,7 +24,7 @@ impl Screen {
 
         // Build empty screen buffer
         let (w, h) = terminal::size()?;
-        let buf = std::iter::repeat(Some(blank()))
+        let buf = std::iter::repeat(None)
             .take(w as usize * h as usize)
             .collect();
 
@@ -42,43 +44,60 @@ impl Screen {
 
     pub fn clear(&mut self, style: Option<Style>) {
         let fill = match style {
-            Some(style) => Some((style, " ".to_owned())),
+            Some(style) => Some((style, ' ')),
             None => Some(blank()),
         };
         self.buf = std::iter::repeat(fill).take(self.w * self.h).collect();
     }
 
     /// Add content to the screen buffer.
-    pub fn draw(&mut self, pos: (usize, usize), styled_text: &(Style, String)) {
-        let (x, y) = pos;
-        let i = x + y * self.w;
-        self.buf[i] = Some(styled_text.to_owned());
+    pub fn draw(&mut self, x: usize, y: usize, styled_str: &StyledStr) {
+        let StyledStr { style, text } = styled_str;
+
+        let mut x = x;
+        for char in text.chars() {
+            if char == '\n' {
+                continue;
+            }
+            self.buf[x + y * self.w] = Some((style.to_owned(), char));
+            x += 1;
+            if x > self.w {
+                break;
+            }
+        }
     }
 
     /// Send the contents of the screen buffer to stdout.
     pub fn render(&mut self) -> Result<(), std::io::Error> {
-        let mut curr_style = &crate::json::STYLE_INACTIVE;
+        let mut curr_style = crate::json::STYLE_INACTIVE;
 
         queue!(
             self.out,
             cursor::MoveTo(0, 0),
+            cursor::Hide,
             terminal::Clear(crossterm::terminal::ClearType::All),
-            style::SetForegroundColor(curr_style.0),
-            style::SetBackgroundColor(curr_style.1),
+            crossterm::style::SetForegroundColor(curr_style.0),
+            crossterm::style::SetBackgroundColor(curr_style.1),
         )?;
 
-        for y in 0..self.h {
-            let x = 0;
-            if let Some((style, text)) = &self.buf[x + y * self.w] {
-                if style != curr_style {
-                    curr_style = style;
+        for (i, sc) in self.buf.iter().enumerate() {
+            if let Some((style, char)) = sc {
+                if *style != curr_style {
+                    curr_style = style.to_owned();
                     queue!(
                         self.out,
-                        style::SetForegroundColor(curr_style.0),
-                        style::SetBackgroundColor(curr_style.1),
+                        crossterm::style::SetForegroundColor(curr_style.0),
+                        crossterm::style::SetBackgroundColor(curr_style.1),
                     )?;
                 }
-                queue!(self.out, style::Print(text), cursor::MoveToNextLine(1))?;
+
+                let x = i % self.w;
+                let y = i / self.w;
+                queue!(
+                    self.out,
+                    cursor::MoveTo(x as u16, y as u16),
+                    crossterm::style::Print(char)
+                )?;
             }
         }
 
@@ -101,12 +120,12 @@ impl Drop for Screen {
     }
 }
 
-fn blank() -> (Style, String) {
+fn blank() -> (Style, char) {
     (
         Style(
             crossterm::style::Color::White,
             crossterm::style::Color::Black,
         ),
-        " ".to_owned(),
+        ' ',
     )
 }
