@@ -42,12 +42,16 @@ impl Screen {
         self.buf.resize(w * h, Some(blank()));
     }
 
-    pub fn clear(&mut self, style: Option<Style>) {
+    pub fn clear(&mut self, x: usize, y: usize, w: usize, h: usize, style: Option<Style>) {
         let fill = match style {
             Some(style) => Some((style, ' ')),
             None => Some(blank()),
         };
-        self.buf = std::iter::repeat(fill).take(self.w * self.h).collect();
+        for i in x..x + w {
+            for j in y..y + h {
+                self.buf[i + j * self.w] = fill;
+            }
+        }
     }
 
     /// Add content to the screen buffer.

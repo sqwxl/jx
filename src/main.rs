@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use args::Args;
 use clap::Parser;
-use json::Json;
 use serde_json::Value;
 use std::fs::File;
 use std::io::{stdin, BufReader};
@@ -16,7 +15,7 @@ fn main() -> Result<()> {
     // parse args
     let args = Args::parse();
 
-    let json: Value = if let Some(path) = args.path {
+    let json: Value = if let Some(ref path) = args.path {
         // read from file
         let file = File::open(path.clone())?;
         let reader = BufReader::new(file);
@@ -31,9 +30,7 @@ fn main() -> Result<()> {
         serde_json::from_reader(reader).context("Could not parse JSON from stdin")?
     };
 
-    let json = Json::new(json);
-
-    let mut tui = Tui::with_json(json)?;
+    let mut tui = Tui::with_value(&json, &args.path)?;
 
     tui.run()?;
 

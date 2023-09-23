@@ -1,8 +1,12 @@
+use std::path::PathBuf;
+
 use crate::events::Action::*;
 use crate::events::Direction::*;
 use crate::json::Json;
 use crate::json::StyledStr;
+use anyhow::Result;
 use crossterm::terminal;
+use serde_json::Value;
 
 use self::screen::Screen;
 
@@ -11,6 +15,7 @@ pub mod screen;
 const INDENT: usize = 2;
 
 pub struct Tui {
+    filepath: Option<PathBuf>,
     json: Json,
     screen: Screen,
     w: usize,
@@ -18,10 +23,11 @@ pub struct Tui {
 }
 
 impl Tui {
-    pub fn with_json(json: Json) -> Result<Self, std::io::Error> {
+    pub fn with_value(value: &Value, filepath: &Option<PathBuf>) -> Result<Self, std::io::Error> {
         let (w, h) = terminal::size()?;
         Ok(Tui {
-            json,
+            filepath: filepath.clone(),
+            json: Json::new(value),
             screen: Screen::new()?,
             w: w as usize,
             h: h as usize,
@@ -29,8 +35,8 @@ impl Tui {
     }
     pub fn run(&mut self) -> Result<(), std::io::Error> {
         // initial draw
-        self.screen.clear(None);
-        self.draw_tree();
+        self.screen.clear(0, 0, self.w, self.h, None);
+        self.draw_interface();
         self.screen.render()?;
 
         loop {
@@ -67,13 +73,45 @@ impl Tui {
             }
 
             if needs_redraw {
-                self.draw_tree();
-                self.draw_pointer();
+                self.draw_interface();
                 self.screen.render()?;
             }
         }
 
         Ok(())
+    }
+
+    fn draw_interface(&mut self) {
+        self.draw_title();
+        self.draw_tree((0, 1), (self.w, self.h - 2));
+        self.draw_pointer();
+    }
+
+    fn draw_title(&mut self) {
+        let mut title = " ".repeat(self.w);
+        match &self.filepath {
+            Some(path) => {
+                let path = format!("{}", path.display());
+                let path = if path.len() > self.w {
+                    &path[path.len() - self.w..] // TODO contract path
+                } else {
+                    &path
+                };
+                title.replace_range(0..path.len(), path);
+            }
+            _ => {
+                let stdin = "stdin";
+                title.replace_range(0..stdin.len(), stdin);
+            }
+        }
+        self.screen.draw(
+            0,
+            0,
+            &StyledStr {
+                style: crate::json::STYLE_TITLE,
+                text: title,
+            },
+        );
     }
 
     fn draw_pointer(&mut self) {
@@ -93,16 +131,16 @@ impl Tui {
         );
     }
 
-    fn draw_tree(&mut self) {
+    fn draw_tree(&mut self, (x, y): (usize, usize), (w, h): (usize, usize)) {
         let styled = self.json.style_json();
-        self.screen.clear(None);
+        self.screen.clear(x, y, w, h, None);
 
-        let mut y = 0;
+        let mut y = y;
         for (depth, styled_str) in styled {
-            if y >= self.h {
+            if y >= h {
                 break;
             }
-            let x = depth * INDENT;
+            let x = x + depth * INDENT;
             self.screen.draw(x, y, &styled_str);
             if styled_str.text.ends_with('\n') {
                 y += 1;

@@ -9,7 +9,7 @@ pub struct Json {
 }
 
 impl Json {
-    pub fn new(value: Value) -> Self {
+    pub fn new(value: &Value) -> Self {
         Self {
             value: value.clone(),
             pointer: vec![], // start at root
@@ -44,7 +44,7 @@ impl Json {
             self.pointer[last] = s;
             true
         } else {
-            false
+            self.go_out()
         }
     }
 
@@ -55,7 +55,7 @@ impl Json {
             self.pointer[last] = s;
             true
         } else {
-            false
+            self.go_out()
         }
     }
 
@@ -184,6 +184,7 @@ impl Json {
 
 pub const STYLE_INACTIVE: Style = Style(Color::White, Color::Black);
 pub const STYLE_ACTIVE: Style = Style(Color::Black, Color::White);
+pub const STYLE_TITLE: Style = Style(Color::White, Color::Black);
 pub const STYLE_POINTER: Style = STYLE_INACTIVE;
 
 #[derive(Clone, Debug)]
@@ -335,7 +336,7 @@ mod tests {
     }
 
     fn get_state() -> Json {
-        Json::new(get_json_value())
+        Json::new(&get_json_value())
     }
 
     #[test]
@@ -364,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_move_on_primitive() {
-        let mut state = Json::new(json!("foo"));
+        let mut state = Json::new(&json!("foo"));
         state.go_in();
         assert_eq!(state.pointer.len(), 0);
         state.go_out();
