@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crossterm::style::Color;
 use serde_json::{Map, Value};
 
@@ -88,6 +90,7 @@ impl ToString for Pointer {
 pub struct Json {
     pub value: Value,
     pub pointer: Pointer,
+    pub style_map: HashMap<String, StyledJson>,
 }
 
 impl Json {
@@ -95,6 +98,7 @@ impl Json {
         Self {
             value: value.clone(),
             pointer: Pointer::new(vec![], 0),
+            style_map: HashMap::new(),
         }
     }
 
@@ -240,15 +244,24 @@ impl Json {
         None
     }
 
-    pub fn style_json(&self) -> Vec<(usize, StyledStr)> {
-        Styler::style_json(&self.value, &self.pointer)
+    pub fn style_json(&mut self) -> StyledJson {
+        self.style_map
+            .entry(self.pointer.active_path().to_owned().join("").to_string())
+            .or_insert(Styler::style_json(&self.value, &self.pointer))
+            .to_owned()
     }
 }
 
 pub const STYLE_INACTIVE: Style = Style(Color::White, Color::Black);
-pub const STYLE_ACTIVE: Style = Style(Color::Black, Color::White);
+pub const STYLE_SELECTION: Style = Style(Color::Black, Color::White);
 pub const STYLE_TITLE: Style = Style(Color::White, Color::Black);
 pub const STYLE_POINTER: Style = STYLE_INACTIVE;
+
+#[derive(Clone)]
+pub struct StyledJson {
+    pub lines: Vec<(usize, StyledStr)>,
+    pub selection: (usize, usize),
+}
 
 #[derive(Clone, Debug)]
 pub struct StyledStr {
@@ -259,9 +272,10 @@ pub struct StyledStr {
 struct Styler {
     pointer: Pointer,
     prefix: Option<String>,
-    output: Vec<(usize, StyledStr)>,
     depth: usize,
     path: Vec<String>,
+    lines: Vec<(usize, StyledStr)>,
+    selection: (usize, usize),
 }
 
 impl Styler {
@@ -269,39 +283,61 @@ impl Styler {
         Self {
             pointer,
             prefix: None,
-            output: Vec::new(),
             depth: 0,
             path: Vec::new(),
+            lines: Vec::new(),
+            selection: (0, 0),
         }
     }
 
     /// Converts a JSON Value and a pointer to a vector of (Style, String) tuples
-    fn style_json(value: &Value, pointer: &Pointer) -> Vec<(usize, StyledStr)> {
+    fn style_json(value: &Value, pointer: &Pointer) -> StyledJson {
         let mut s = Self::new(pointer.clone());
 
         s.style_json_recursive(value);
 
-        s.output
+        eprintln!("top: {}", s.selection.0);
+
+        StyledJson {
+            lines: s.lines,
+            selection: s.selection,
+        }
     }
 
-    fn push_str(&mut self, text: &str) {
+    fn push_line(&mut self, text: &str) {
         let mut text = text.to_owned();
         if let Some(prefix) = &self.prefix {
             text = format!("{}{}", prefix, text);
             self.prefix = None;
         }
 
-        self.output.push((
-            self.depth,
-            StyledStr {
-                style: self.match_pointer_style(),
-                text,
-            },
-        ));
+        let style = self.match_pointer_style();
+
+        self.update_selection(&style);
+
+        self.lines.push((self.depth, StyledStr { style, text }));
+    }
+
+    fn update_selection(&mut self, style: &Style) {
+        if let Some(last_style) = self.lines.last().map(|(_, s)| s.style) {
+            if last_style != *style {
+                match *style {
+                    STYLE_SELECTION => {
+                        // selection start
+                        self.selection.0 = self.lines.len();
+                    }
+                    STYLE_INACTIVE => {
+                        // selection end
+                        self.selection.1 = self.lines.len() - 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 
     fn append_str(&mut self, text: &str) {
-        if let Some((_, last)) = self.output.last_mut() {
+        if let Some((_, last)) = self.lines.last_mut() {
             last.text.push_str(text);
         }
     }
@@ -315,7 +351,7 @@ impl Styler {
     }
 
     fn style_map(&mut self, map: &Map<String, Value>) {
-        self.push_str("{\n");
+        self.push_line("{");
         self.depth += 1;
         for (idx, (key, value)) in map.iter().enumerate() {
             if idx == 0 {
@@ -326,20 +362,18 @@ impl Styler {
             self.prefix = Some(format!("\"{}\": ", key));
             self.style_json_recursive(value);
             if idx < map.len() - 1 {
-                self.append_str(",\n");
-            } else {
-                self.append_str("\n");
+                self.append_str(",");
             }
         }
         if !map.is_empty() {
             self.path.pop();
         }
         self.depth -= 1;
-        self.push_str("}\n");
+        self.push_line("}");
     }
 
     fn style_array(&mut self, array: &[Value]) {
-        self.push_str("[\n");
+        self.push_line("[");
         self.depth += 1;
         for (idx, value) in array.iter().enumerate() {
             if idx == 0 {
@@ -349,25 +383,23 @@ impl Styler {
             }
             self.style_json_recursive(value);
             if idx < array.len() - 1 {
-                self.append_str(",\n");
-            } else {
-                self.append_str("\n");
+                self.append_str(",");
             }
         }
         if !array.is_empty() {
             self.path.pop();
         }
         self.depth -= 1;
-        self.push_str("]\n");
+        self.push_line("]");
     }
 
     fn style_primitive(&mut self, value: &Value) {
-        self.push_str(value.to_string().as_str())
+        self.push_line(value.to_string().as_str())
     }
 
     fn match_pointer_style(&self) -> Style {
         if self.path.starts_with(self.pointer.active_path()) {
-            STYLE_ACTIVE
+            STYLE_SELECTION
         } else {
             STYLE_INACTIVE
         }

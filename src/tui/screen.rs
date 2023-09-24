@@ -4,7 +4,7 @@ use std::io::{stdout, BufWriter, Stdout, Write};
 use crate::json::StyledStr;
 
 /// Foreground & Background
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Style(pub crossterm::style::Color, pub crossterm::style::Color);
 
 pub struct Screen {

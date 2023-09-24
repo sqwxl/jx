@@ -92,8 +92,9 @@ impl Tui {
         match &self.filepath {
             Some(path) => {
                 let path = format!("{}", path.display());
+                // TODO try to shorten path if too long
                 let path = if path.len() > self.w {
-                    &path[path.len() - self.w..] // TODO contract path
+                    &path[path.len() - self.w..]
                 } else {
                     &path
                 };
@@ -117,7 +118,14 @@ impl Tui {
     fn draw_pointer(&mut self) {
         let y = self.h - 1;
         let mut pointer = self.json.pointer.to_string();
-        pointer.push_str(&" ".repeat(self.w - pointer.len()));
+        // TODO try to shorten pointer if too long
+        let r_pad = if pointer.len() > self.w {
+            0
+        } else {
+            self.w - pointer.len()
+        };
+
+        pointer.push_str(&" ".repeat(r_pad));
         self.screen.draw(
             0,
             y,
@@ -130,18 +138,23 @@ impl Tui {
 
     fn draw_tree(&mut self, (x, y): (usize, usize), (w, h): (usize, usize)) {
         let styled = self.json.style_json();
+
+        let (selection_top, selection_bottom) = styled.selection;
         self.screen.clear(x, y, w, h, None);
 
+        let top = if selection_top < h / 2 {
+            0
+        } else if selection_bottom > styled.lines.len() - h / 2 {
+            styled.lines.len() - h
+        } else {
+            selection_top - h / 2
+        };
+
         let mut y = y;
-        for (depth, styled_str) in styled {
-            if y >= h {
-                break;
-            }
+        for (depth, styled_str) in styled.lines.iter().skip(top).take(h) {
             let x = x + depth * INDENT;
-            self.screen.draw(x, y, &styled_str);
-            if styled_str.text.ends_with('\n') {
-                y += 1;
-            }
+            self.screen.draw(x, y, styled_str);
+            y += 1;
         }
     }
 }
