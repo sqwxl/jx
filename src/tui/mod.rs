@@ -116,17 +116,14 @@ impl Tui {
 
     fn draw_pointer(&mut self) {
         let y = self.h - 1;
+        let mut pointer = self.json.pointer.to_string();
+        pointer.push_str(&" ".repeat(self.w - pointer.len()));
         self.screen.draw(
             0,
             y,
             &StyledStr {
                 style: crate::json::STYLE_POINTER,
-                text: self
-                    .json
-                    .pointer
-                    .iter()
-                    .map(|s| format!("/\"{}\"", s))
-                    .collect(),
+                text: pointer,
             },
         );
     }
