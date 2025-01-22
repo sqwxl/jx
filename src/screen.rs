@@ -1,7 +1,7 @@
 use crossterm::{cursor, execute, queue, terminal};
 use std::io::{stdout, BufWriter, Stdout, Write};
 
-use crate::json::StyledStr;
+use crate::style::StyledStr;
 
 /// Foreground & Background
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,6 +39,8 @@ impl Screen {
     pub fn resize(&mut self, w: usize, h: usize) {
         self.w = w;
         self.h = h;
+
+        // resize the buffer and fill with blanks
         self.buf.resize(w * h, Some(blank()));
     }
 
@@ -47,6 +49,7 @@ impl Screen {
             Some(style) => Some((style, ' ')),
             None => Some(blank()),
         };
+
         for i in x..x + w {
             for j in y..y + h {
                 self.buf[i + j * self.w] = fill;
@@ -63,8 +66,11 @@ impl Screen {
             if char == '\n' {
                 continue;
             }
+
             self.buf[x + y * self.w] = Some((style.to_owned(), char));
+
             x += 1;
+
             if x > self.w {
                 break;
             }
@@ -73,25 +79,25 @@ impl Screen {
 
     /// Send the contents of the screen buffer to stdout.
     pub fn render(&mut self) -> Result<(), std::io::Error> {
-        let mut curr_style = crate::json::STYLE_INACTIVE;
+        let mut current_style = crate::style::STYLE_INACTIVE;
 
         queue!(
             self.out,
             cursor::MoveTo(0, 0),
             cursor::Hide,
             terminal::Clear(crossterm::terminal::ClearType::All),
-            crossterm::style::SetForegroundColor(curr_style.0),
-            crossterm::style::SetBackgroundColor(curr_style.1),
+            crossterm::style::SetForegroundColor(current_style.0),
+            crossterm::style::SetBackgroundColor(current_style.1),
         )?;
 
         for (i, sc) in self.buf.iter().enumerate() {
             if let Some((style, char)) = sc {
-                if *style != curr_style {
-                    curr_style = style.to_owned();
+                if *style != current_style {
+                    current_style = style.to_owned();
                     queue!(
                         self.out,
-                        crossterm::style::SetForegroundColor(curr_style.0),
-                        crossterm::style::SetBackgroundColor(curr_style.1),
+                        crossterm::style::SetForegroundColor(current_style.0),
+                        crossterm::style::SetBackgroundColor(current_style.1),
                     )?;
                 }
 
