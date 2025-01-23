@@ -19,7 +19,7 @@ pub struct Prompt {
 }
 
 impl Prompt {
-    pub fn new(value: &Value, filepath: &Option<PathBuf>) -> Result<Self, std::io::Error> {
+    pub fn new(value: &Value, filepath: &Option<PathBuf>) -> Result<Self> {
         let (w, h) = terminal::size()?;
         Ok(Prompt {
             filepath: filepath.clone(),
@@ -30,7 +30,7 @@ impl Prompt {
         })
     }
 
-    pub fn run(&mut self) -> Result<(), std::io::Error> {
+    pub fn run(&mut self) -> Result<()> {
         // initial draw
         self.screen.clear(0, 0, self.w, self.h, None);
         self.draw_interface();
@@ -80,13 +80,14 @@ impl Prompt {
     }
 
     fn draw_interface(&mut self) {
-        self.draw_title(0, 0);
-        self.draw_path(0, 1);
-        self.draw_tree((0, 2), (self.w, self.h - 2));
+        let mut cursor = (0, 0);
+        cursor = self.draw_title(cursor.0, cursor.1);
+        self.draw_path(cursor.0 + 2, cursor.1);
+        self.draw_tree((0, 1), (self.w, self.h - 2));
     }
 
-    fn draw_title(&mut self, x: usize, y: usize) {
-        let mut title = " ".repeat(self.w);
+    fn draw_title(&mut self, x: usize, y: usize) -> (usize, usize) {
+        let mut title = String::new();
 
         match &self.filepath {
             Some(path) => {
@@ -94,16 +95,16 @@ impl Prompt {
 
                 // TODO try to shorten path if too long
                 let path = if path.len() > self.w {
-                    &path[path.len() - self.w..]
+                    &path[..self.w]
                 } else {
                     &path
                 };
 
-                title.replace_range(0..path.len(), path);
+                title.push_str(path);
             }
             _ => {
                 let stdin = "stdin";
-                title.replace_range(0..stdin.len(), stdin);
+                title.push_str(stdin);
             }
         }
 
@@ -114,20 +115,13 @@ impl Prompt {
                 style: crate::style::STYLE_TITLE,
                 text: title,
             },
-        );
+        )
     }
 
     fn draw_path(&mut self, x: usize, y: usize) {
-        let mut path = format!("{}", self.json.pointer);
+        self.screen.clear(x, y, self.w, 1, None);
 
-        // TODO try to shorten pointer if too long
-        let r_pad = if path.len() > self.w {
-            0
-        } else {
-            self.w - path.len()
-        };
-
-        path.push_str(&" ".repeat(r_pad));
+        let path = format!("{}", self.json.pointer);
 
         self.screen.draw(
             x,

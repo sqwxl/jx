@@ -1,5 +1,6 @@
+use anyhow::Result;
 use crossterm::{cursor, execute, queue, terminal};
-use std::io::{stdout, BufWriter, Stdout, Write};
+use std::io::{self, BufWriter, Stdout, Write};
 
 use crate::style::StyledStr;
 
@@ -15,13 +16,7 @@ pub struct Screen {
 }
 
 impl Screen {
-    pub fn new() -> Result<Self, std::io::Error> {
-        let mut out = BufWriter::new(stdout());
-
-        execute!(out, terminal::EnterAlternateScreen)?;
-        out.flush()?;
-        terminal::enable_raw_mode()?;
-
+    pub fn new() -> Result<Self> {
         // Build empty screen buffer
         let (w, h) = terminal::size()?;
         let buf = std::iter::repeat(None)
@@ -29,7 +24,7 @@ impl Screen {
             .collect();
 
         Ok(Screen {
-            out,
+            out: BufWriter::new(io::stdout()),
             buf,
             w: w as usize,
             h: h as usize,
@@ -58,27 +53,27 @@ impl Screen {
     }
 
     /// Add content to the screen buffer.
-    pub fn draw(&mut self, x: usize, y: usize, styled_str: &StyledStr) {
+    pub fn draw(&mut self, x: usize, y: usize, styled_str: &StyledStr) -> (usize, usize) {
         let StyledStr { style, text } = styled_str;
 
-        let mut x = x;
+        let mut i = x;
+        let mut j = y;
         for char in text.chars() {
             if char == '\n' {
-                continue;
+                j += 1;
+                i = 0;
             }
 
-            self.buf[x + y * self.w] = Some((style.to_owned(), char));
+            self.buf[i + j * self.w] = Some((style.to_owned(), char));
 
-            x += 1;
-
-            if x > self.w {
-                break;
-            }
+            i += 1;
         }
+
+        (i, j)
     }
 
     /// Send the contents of the screen buffer to stdout.
-    pub fn render(&mut self) -> Result<(), std::io::Error> {
+    pub fn render(&mut self) -> Result<()> {
         let mut current_style = crate::style::STYLE_INACTIVE;
 
         queue!(
@@ -111,21 +106,14 @@ impl Screen {
             }
         }
 
-        self.out.flush()
+        self.out.flush().map_err(anyhow::Error::from)
     }
 }
 
 impl Drop for Screen {
     fn drop(&mut self) {
         terminal::disable_raw_mode().unwrap();
-        execute!(
-            self.out,
-            terminal::Clear(crossterm::terminal::ClearType::All),
-            crossterm::style::ResetColor,
-            terminal::LeaveAlternateScreen,
-            crossterm::cursor::Show,
-        )
-        .unwrap();
+        execute!(self.out, terminal::LeaveAlternateScreen, cursor::Show).unwrap();
         self.out.flush().unwrap();
     }
 }

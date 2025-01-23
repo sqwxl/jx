@@ -1,3 +1,4 @@
+use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 
 pub enum Direction {
@@ -18,7 +19,7 @@ pub enum Action {
 }
 use Action::*;
 
-pub fn user_event() -> std::io::Result<Action> {
+pub fn user_event() -> Result<Action> {
     let event = event::read()?;
     match event {
         Event::Key(KeyEvent {

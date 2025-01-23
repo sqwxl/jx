@@ -2,7 +2,7 @@
   
 # jx
 
-![Crates.io](https://img.shields.io/crates/v/jx?logo=rust) 
+![Crates.io](https://img.shields.io/crates/v/jx?logo=rust)
 ![Downloads](https://img.shields.io/github/downloads/sqwxl/jx/total?logo=github)
 
 jx is an interactive JSON explorer for the command line.
@@ -18,27 +18,22 @@ jx is an interactive JSON explorer for the command line.
 
 ```sh
 jx example.json                              # open a JSON file directly
-cat example.json | jx                        # ...or pipe it in
-curl example.com/some-json-endpoint | jx     # ...from anywhere
-jx example.json -o selection.json             # ...write your selection to a file (can also be acheive via the ui)
+curl example.com/some-json-endpoint | jx     # ...or pipe it in
 ```
 
 ## Installation
 
-1. **Install binary**
+### Cargo
 
-   [ ] *TODO* release binary on various platforms
-
-   `cargo install jx`
-   
-   For now you can manually download the latest version from the [releases](github.com/sqwxl/jx/releases) page.
+`cargo install jx`
 
 ## Usage
 
-TODO
+- Use the arrow keys or 'hjkl' to navigate the JSON structure.
+- 'Space' to toggle a fold.
+- 'Enter' to copy the selection to the clipboard.
+- 'q', 'Escape' or '^C' to quit.
 
 ## Tests
 
 `cargo test`
-
-   
