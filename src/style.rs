@@ -47,8 +47,6 @@ impl Styler {
 
         s.style_json_recursive(value);
 
-        eprintln!("top: {}", s.selection.0);
-
         StyledJson {
             lines: s.lines,
             selection: s.selection,

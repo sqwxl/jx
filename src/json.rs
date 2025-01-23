@@ -75,7 +75,7 @@ impl Pointer {
 
     fn resolved(&self) -> String {
         let s = self.path[..self.depth].join("/");
-        eprintln!("resolved: {}", s);
+
         if s.is_empty() {
             s
         } else {
@@ -86,6 +86,11 @@ impl Pointer {
 
 impl Display for Pointer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.depth == 0 {
+            write!(f, ".")?;
+            return Ok(());
+        }
+
         self.path
             .iter()
             .take(self.depth)
@@ -131,7 +136,8 @@ impl Json {
             self.pointer.move_to(&s);
             true
         } else {
-            self.go_out()
+            // self.go_out()
+            false
         }
     }
 
@@ -140,7 +146,8 @@ impl Json {
             self.pointer.move_to(&s);
             true
         } else {
-            self.go_out()
+            // self.go_out()
+            false
         }
     }
 
