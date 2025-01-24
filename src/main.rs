@@ -35,14 +35,7 @@ fn main() -> Result<()> {
     execute!(io::stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
 
     if let Err(err) = result {
-        // https://github.com/rust-lang/rust/blob/1.84.0/library/std/src/panicking.rs#L747-L755
-        let msg = match err.downcast_ref::<&'static str>() {
-            Some(s) => *s,
-            None => match err.downcast_ref::<String>() {
-                Some(s) => &s[..],
-                None => "Unknown error",
-            },
-        };
+        let msg = downcast_panic(err);
 
         eprintln!("{:?}", msg);
 
@@ -81,4 +74,17 @@ fn validate_path(file: &str) -> Result<PathBuf, String> {
     }
 
     Ok(path.to_owned())
+}
+
+/// https://github.com/rust-lang/rust/blob/1.84.0/library/std/src/panicking.rs#L747-L755
+fn downcast_panic(err: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(s) = err.downcast_ref::<&'static str>() {
+        return s.to_string();
+    };
+
+    if let Some(s) = err.downcast_ref::<String>() {
+        return s.clone();
+    };
+
+    "Unknown panic".to_string()
 }

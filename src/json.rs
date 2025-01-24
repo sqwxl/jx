@@ -73,7 +73,7 @@ impl Pointer {
         }
     }
 
-    fn resolved(&self) -> String {
+    fn to_path_string(&self) -> String {
         let s = self.path[..self.depth].join("/");
 
         if s.is_empty() {
@@ -151,14 +151,29 @@ impl Json {
         }
     }
 
-    pub fn resolve_pointer(&self, pointer_str: Option<&str>) -> Option<&Value> {
+    fn get_value(&self, pointer_str: Option<&str>) -> Option<&Value> {
         self.value
-            .pointer(pointer_str.unwrap_or(&self.pointer.resolved()))
+            .pointer(pointer_str.unwrap_or(&self.pointer.to_path_string()))
+    }
+
+    pub fn selection_string(&mut self) -> Option<String> {
+        // TODO: indentation
+        let StyledJson { lines, selection } = self.style_json();
+        lines[selection.0..selection.1 + 1]
+            .iter()
+            .map(|(_, styled_str)| styled_str.text.clone())
+            .collect::<Vec<String>>()
+            .join("\n")
+            .into()
+    }
+
+    pub fn value_string(&self) -> Option<String> {
+        self.get_value(None).map(|value| value.to_string())
     }
 
     /// Gets the first child of an object or array
     pub fn first_child(&self) -> Option<String> {
-        if let Some(v) = self.resolve_pointer(None) {
+        if let Some(v) = self.get_value(None) {
             match v {
                 Value::Object(o) => {
                     if let Some(key) = o.keys().next() {
@@ -180,7 +195,7 @@ impl Json {
     #[allow(dead_code)]
     /// Gets the last child of an object or array
     pub fn last_child(&self) -> Option<String> {
-        if let Some(v) = self.resolve_pointer(None) {
+        if let Some(v) = self.get_value(None) {
             match v {
                 Value::Object(o) => {
                     if let Some(key) = o.keys().last() {
@@ -202,7 +217,7 @@ impl Json {
 
     fn pointer_parent_value(&self) -> Option<&Value> {
         if let Some(parent) = self.pointer.parent_pointer() {
-            self.resolve_pointer(Some(&parent.resolved()))
+            self.get_value(Some(&parent.to_path_string()))
         } else {
             None
         }
@@ -299,13 +314,13 @@ mod tests {
     #[test]
     fn test_pointer_str() {
         let state = get_state();
-        assert_eq!(state.pointer.resolved().as_str(), "");
+        assert_eq!(state.pointer.to_path_string().as_str(), "");
     }
 
     #[test]
     fn test_pointer_value() {
         let state = get_state();
-        assert_eq!(state.resolve_pointer(None), Some(&get_json_value()));
+        assert_eq!(state.get_value(None), Some(&get_json_value()));
     }
 
     #[test]

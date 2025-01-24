@@ -4,6 +4,7 @@ use crate::json::Json;
 use crate::screen::Screen;
 use crate::style::StyledStr;
 use anyhow::Result;
+use arboard::Clipboard;
 use crossterm::terminal;
 use serde_json::Value;
 use std::path::PathBuf;
@@ -31,10 +32,11 @@ impl Prompt {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        // initial draw
         self.screen.clear(0, 0, self.w, self.h, None);
         self.draw_interface();
         self.screen.render()?;
+
+        let mut clipboard = Clipboard::new()?;
 
         loop {
             let mut needs_redraw = false;
@@ -66,6 +68,17 @@ impl Prompt {
                     self.h = h;
                     self.screen.resize(w, h);
                     needs_redraw = true;
+                }
+                // TODO: copy feedback
+                CopySelection => {
+                    if let Some(selection) = self.json.selection_string() {
+                        clipboard.set_text(selection)?;
+                    }
+                }
+                CopyRawValue => {
+                    if let Some(value) = self.json.value_string() {
+                        clipboard.set_text(value)?;
+                    }
                 }
                 _ => {}
             }

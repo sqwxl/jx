@@ -16,6 +16,8 @@ pub enum Action {
     Resize(usize, usize),
     Fold,
     Ignore,
+    CopySelection,
+    CopyRawValue,
 }
 use Action::*;
 
@@ -76,6 +78,18 @@ pub fn user_event() -> Result<Action> {
             kind: _,
             state: _,
         }) => Ok(Scroll(Down)),
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('v'),
+            modifiers: KeyModifiers::NONE,
+            kind: _,
+            state: _,
+        }) => Ok(CopyRawValue),
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('y'),
+            modifiers: KeyModifiers::NONE,
+            kind: _,
+            state: _,
+        }) => Ok(CopySelection),
         Event::Resize(w, h) => Ok(Resize(w as usize, h as usize)),
         _ => Ok(Ignore),
     }
