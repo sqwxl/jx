@@ -7,6 +7,7 @@ pub enum Direction {
     Left,
     Right,
 }
+
 use Direction::*;
 
 pub enum Action {
@@ -19,6 +20,7 @@ pub enum Action {
     CopySelection,
     CopyRawValue,
 }
+
 use Action::*;
 
 pub fn user_event() -> Result<Action> {

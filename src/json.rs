@@ -1,8 +1,6 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
 use serde_json::Value;
-
-use crate::style::{StyledJson, Styler};
 
 #[derive(Clone, Default)]
 pub struct Pointer {
@@ -100,11 +98,10 @@ impl Display for Pointer {
     }
 }
 
-/// A JSON value with a path to the current active node.
+/// A parsed JSON object with a pointer to the current active node.
 pub struct Json {
     pub value: Value,
     pub pointer: Pointer,
-    pub style_map: HashMap<String, StyledJson>,
 }
 
 impl Json {
@@ -112,7 +109,6 @@ impl Json {
         Self {
             value: value.clone(),
             pointer: Pointer::new(vec![], 0),
-            style_map: HashMap::new(),
         }
     }
 
@@ -151,24 +147,22 @@ impl Json {
         }
     }
 
-    fn get_value(&self, pointer_str: Option<&str>) -> Option<&Value> {
-        self.value
-            .pointer(pointer_str.unwrap_or(&self.pointer.to_path_string()))
+    /// Gets the JSON value at the current, or given, pointer location.
+    pub fn get_value(&self, pointer_str: Option<&str>) -> Option<&Value> {
+        if let Some(str) = pointer_str {
+            self.value.pointer(str)
+        } else {
+            self.value.pointer(&self.pointer.to_path_string())
+        }
     }
 
-    pub fn selection_string(&mut self) -> Option<String> {
-        // TODO: indentation
-        let StyledJson { lines, selection } = self.style_json();
-        lines[selection.0..selection.1 + 1]
-            .iter()
-            .map(|(_, styled_str)| styled_str.text.clone())
-            .collect::<Vec<String>>()
-            .join("\n")
-            .into()
-    }
-
-    pub fn value_string(&self) -> Option<String> {
-        self.get_value(None).map(|value| value.to_string())
+    /// Gets the parent value of the current pointer location.
+    fn get_parent_value(&self) -> Option<&Value> {
+        if let Some(parent) = self.pointer.parent_pointer() {
+            self.get_value(Some(&parent.to_path_string()))
+        } else {
+            None
+        }
     }
 
     /// Gets the first child of an object or array
@@ -192,8 +186,8 @@ impl Json {
         None
     }
 
-    #[allow(dead_code)]
     /// Gets the last child of an object or array
+    #[allow(dead_code)]
     pub fn last_child(&self) -> Option<String> {
         if let Some(v) = self.get_value(None) {
             match v {
@@ -215,18 +209,10 @@ impl Json {
         None
     }
 
-    fn pointer_parent_value(&self) -> Option<&Value> {
-        if let Some(parent) = self.pointer.parent_pointer() {
-            self.get_value(Some(&parent.to_path_string()))
-        } else {
-            None
-        }
-    }
-
     /// Gets the previous sibling element for a given pointer index.
     /// If `idx` is `None`, the last element in the pointer is used.
     pub fn prev_sibling(&self) -> Option<String> {
-        if let Some(v) = self.pointer_parent_value() {
+        if let Some(v) = self.get_parent_value() {
             match v {
                 Value::Object(o) => {
                     let key_idx = o
@@ -252,7 +238,7 @@ impl Json {
     /// Gets the next sibling element for a given pointer index.
     /// If `idx` is `None`, the last element in the pointer is used.
     pub fn next_sibling(&self) -> Option<String> {
-        if let Some(v) = self.pointer_parent_value() {
+        if let Some(v) = self.get_parent_value() {
             match v {
                 Value::Object(o) => {
                     let key_idx = o
@@ -273,13 +259,6 @@ impl Json {
             }
         }
         None
-    }
-
-    pub fn style_json(&mut self) -> StyledJson {
-        self.style_map
-            .entry(self.pointer.active_path().to_owned().join("").to_string())
-            .or_insert(Styler::style_json(&self.value, &self.pointer))
-            .to_owned()
     }
 }
 

@@ -1,13 +1,15 @@
+#![allow(dead_code)]
+mod display;
 mod events;
 mod json;
 mod prompt;
-mod screen;
+mod renderer;
 mod style;
 
-use crate::prompt::Prompt;
 use anyhow::{Context, Result};
 use clap::Parser;
 use crossterm::{cursor, execute, terminal};
+use json::Json;
 use std::fs::File;
 use std::io::{self, stdin, BufReader};
 use std::path::{Path, PathBuf};
@@ -22,55 +24,54 @@ pub struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let json = parse_input(&args)?;
-
     execute!(io::stdout(), terminal::EnterAlternateScreen)?;
 
     terminal::enable_raw_mode()?;
 
-    let result = std::panic::catch_unwind(|| Prompt::new(&json, &args.path)?.run());
+    // let result = std::panic::catch_unwind(|| prompt::run(&args.path, parse_input(&args)?));
+    prompt::run(&args.path, parse_input(&args)?)?;
 
     terminal::disable_raw_mode()?;
 
     execute!(io::stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
 
-    if let Err(err) = result {
-        let msg = downcast_panic(err);
-
-        eprintln!("{:?}", msg);
-
-        std::process::exit(1);
-    }
+    // if let Err(err) = result {
+    //     let msg = downcast_panic(err);
+    //
+    //     eprintln!("{:?}", msg);
+    //
+    //     std::process::exit(1);
+    // }
 
     Ok(())
 }
 
-fn parse_input(args: &Args) -> Result<serde_json::Value> {
-    let json: serde_json::Value = if let Some(ref path) = args.path {
+fn parse_input(args: &Args) -> Result<Json> {
+    let value: serde_json::Value = if let Some(ref path) = args.path {
         let file = File::open(path.clone())?;
         let reader = BufReader::new(file);
 
         serde_json::from_reader(reader)
-            .context(format!("Error parsing JSON from file {}", path.display()))?
+            .context(format!("Error parsing JSON from file {}.", path.display()))?
     } else {
         let stdin = stdin();
         let reader = stdin.lock();
 
-        serde_json::from_reader(reader).context("Could not parse JSON from stdin")?
+        serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
     };
 
-    Ok(json)
+    Ok(Json::new(&value))
 }
 
 fn validate_path(file: &str) -> Result<PathBuf, String> {
     let path = Path::new(file);
 
     if !path.exists() {
-        return Err(format!("Path {} does not exist", file));
+        return Err(format!("Path {} does not exist.", file));
     }
 
     if !path.is_file() {
-        return Err(format!("Path {} is not a file", file));
+        return Err(format!("Path {} is not a file.", file));
     }
 
     Ok(path.to_owned())

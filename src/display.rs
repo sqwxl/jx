@@ -2,52 +2,58 @@ use anyhow::Result;
 use crossterm::{cursor, execute, queue, terminal};
 use std::io::{self, BufWriter, Stdout, Write};
 
-use crate::style::StyledStr;
+use crate::{renderer::Vec2, style::StyledStr};
 
 /// Foreground & Background
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Style(pub crossterm::style::Color, pub crossterm::style::Color);
 
-pub struct Screen {
+pub struct Display {
+    pub size: Vec2,
     out: BufWriter<Stdout>,
     buf: Vec<Option<(Style, char)>>,
-    w: usize,
-    h: usize,
 }
 
-impl Screen {
+impl Display {
     pub fn new() -> Result<Self> {
         // Build empty screen buffer
-        let (w, h) = terminal::size()?;
-        let buf = std::iter::repeat(None)
-            .take(w as usize * h as usize)
-            .collect();
+        let size: Vec2 = terminal::size().map(|s| (s.0 as usize, s.1 as usize))?;
 
-        Ok(Screen {
+        let buf = std::iter::repeat(None).take(size.0 * size.1).collect();
+
+        Ok(Display {
+            size,
             out: BufWriter::new(io::stdout()),
             buf,
-            w: w as usize,
-            h: h as usize,
         })
     }
 
-    pub fn resize(&mut self, w: usize, h: usize) {
-        self.w = w;
-        self.h = h;
-
-        // resize the buffer and fill with blanks
-        self.buf.resize(w * h, Some(blank()));
+    pub fn resize(&mut self, size: Vec2) -> bool {
+        if self.size != size {
+            self.size = size;
+            // Resize and clear the buffer.
+            self.buf.resize(size.0 * size.1, Some(blank()));
+            true
+        } else {
+            false
+        }
     }
 
-    pub fn clear(&mut self, x: usize, y: usize, w: usize, h: usize, style: Option<Style>) {
+    pub fn clear(&mut self, (x, y): (usize, usize), (w, h): (usize, usize), style: Option<Style>) {
         let fill = match style {
             Some(style) => Some((style, ' ')),
             None => Some(blank()),
         };
 
         for i in x..x + w {
+            if i >= self.size.0 {
+                break;
+            }
             for j in y..y + h {
-                self.buf[i + j * self.w] = fill;
+                if j >= self.size.1 {
+                    break;
+                }
+                self.buf[i + j * w] = fill;
             }
         }
     }
@@ -56,15 +62,16 @@ impl Screen {
     pub fn draw(&mut self, x: usize, y: usize, styled_str: &StyledStr) -> (usize, usize) {
         let StyledStr { style, text } = styled_str;
 
-        let mut i = x;
-        let mut j = y;
+        let mut i = usize::clamp(x, 0, self.size.0 - 1);
+        let mut j = usize::clamp(y, 0, self.size.1 - 1);
+
         for char in text.chars() {
             if char == '\n' {
                 j += 1;
                 i = 0;
             }
 
-            self.buf[i + j * self.w] = Some((style.to_owned(), char));
+            self.buf[i + j * self.size.0] = Some((style.to_owned(), char));
 
             i += 1;
         }
@@ -73,7 +80,7 @@ impl Screen {
     }
 
     /// Send the contents of the screen buffer to stdout.
-    pub fn render(&mut self) -> Result<()> {
+    pub fn show(&mut self) -> Result<()> {
         let mut current_style = crate::style::STYLE_INACTIVE;
 
         queue!(
@@ -96,8 +103,8 @@ impl Screen {
                     )?;
                 }
 
-                let x = i % self.w;
-                let y = i / self.w;
+                let x = i % self.size.0;
+                let y = i / self.size.0;
                 queue!(
                     self.out,
                     cursor::MoveTo(x as u16, y as u16),
@@ -110,7 +117,8 @@ impl Screen {
     }
 }
 
-impl Drop for Screen {
+impl Drop for Display {
+    /// Restore the terminal to its original state when the Display is dropped.
     fn drop(&mut self) {
         terminal::disable_raw_mode().unwrap();
         execute!(self.out, terminal::LeaveAlternateScreen, cursor::Show).unwrap();

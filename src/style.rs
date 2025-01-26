@@ -1,7 +1,10 @@
 use crossterm::style::Color;
 use serde_json::{Map, Value};
 
-use crate::{json::Pointer, screen::Style};
+use crate::{
+    display::Style,
+    json::{Json, Pointer},
+};
 
 pub const STYLE_INACTIVE: Style = Style(Color::White, Color::Black);
 pub const STYLE_SELECTION: Style = Style(Color::Black, Color::Blue);
@@ -42,10 +45,10 @@ impl Styler {
     }
 
     /// Converts a JSON Value and a pointer to a vector of (Style, String) tuples
-    pub fn style_json(value: &Value, pointer: &Pointer) -> StyledJson {
-        let mut s = Self::new(pointer.clone());
+    pub fn style_json(json: &Json) -> StyledJson {
+        let mut s = Self::new(json.pointer.clone());
 
-        s.style_json_recursive(value);
+        s.style_json_recursive(&json.value);
 
         StyledJson {
             lines: s.lines,
