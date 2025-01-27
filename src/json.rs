@@ -156,6 +156,28 @@ impl Json {
         }
     }
 
+    /// Get the key of the value at the current pointer location.
+    fn get_key(&self) -> Option<String> {
+        self.pointer.path.last().map(|s| s.to_string())
+    }
+
+    /// Get selection (key and value)
+    pub fn get_selection(&self) -> Option<(Option<String>, &Value)> {
+        let value = self.get_value(None)?;
+
+        Some(if self.value_is_array_element() {
+            (None, value)
+        } else {
+            self.get_key().map_or((None, value), |k| (Some(k), value))
+        })
+    }
+
+    fn value_is_array_element(&self) -> bool {
+        self.get_parent_value()
+            .map(|v| v.is_array())
+            .unwrap_or(false)
+    }
+
     /// Gets the parent value of the current pointer location.
     fn get_parent_value(&self) -> Option<&Value> {
         if let Some(parent) = self.pointer.parent_pointer() {

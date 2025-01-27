@@ -1,21 +1,32 @@
 #![allow(dead_code)]
-mod display;
-mod events;
-mod json;
-mod prompt;
-mod renderer;
-mod style;
-
-use anyhow::{Context, Result};
-use clap::Parser;
-use crossterm::{cursor, execute, terminal};
-use json::Json;
 use std::fs::File;
 use std::io::{self, stdin, BufReader};
 use std::path::{Path, PathBuf};
 
+use anyhow::{Context, Result};
+use clap::Parser;
+use crossterm::{
+    cursor,
+    event::{
+        DisableFocusChange, EnableFocusChange, KeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    },
+    execute, queue,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+
+use crate::json::Json;
+
+mod display;
+mod events;
+mod json;
+mod renderer;
+mod run;
+mod style;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+// TODO: Add --help
 pub struct Args {
     #[arg(value_parser = validate_path)]
     pub path: Option<PathBuf>,
@@ -24,24 +35,52 @@ pub struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    execute!(io::stdout(), terminal::EnterAlternateScreen)?;
+    enable_raw_mode()?;
 
-    terminal::enable_raw_mode()?;
+    let mut stdout = io::stdout();
 
-    // let result = std::panic::catch_unwind(|| prompt::run(&args.path, parse_input(&args)?));
-    prompt::run(&args.path, parse_input(&args)?)?;
+    let supports_keyboard_enhancement = matches!(
+        crossterm::terminal::supports_keyboard_enhancement(),
+        Ok(true)
+    );
 
-    terminal::disable_raw_mode()?;
+    if supports_keyboard_enhancement {
+        queue!(
+            stdout,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
+        )?;
+    }
 
-    execute!(io::stdout(), terminal::LeaveAlternateScreen, cursor::Show)?;
+    execute!(
+        stdout,
+        cursor::Hide,
+        EnableFocusChange,
+        EnterAlternateScreen,
+    )?;
 
-    // if let Err(err) = result {
-    //     let msg = downcast_panic(err);
-    //
-    //     eprintln!("{:?}", msg);
-    //
-    //     std::process::exit(1);
-    // }
+    let output = run::run(&args.path, parse_input(&args)?)?;
+
+    execute!(
+        stdout,
+        cursor::Show,
+        DisableFocusChange,
+        LeaveAlternateScreen,
+    )?;
+
+    if supports_keyboard_enhancement {
+        queue!(stdout, PopKeyboardEnhancementFlags)?;
+    }
+
+    disable_raw_mode()?;
+
+    if let Some(str) = output {
+        println!("{}", str);
+    };
 
     Ok(())
 }
@@ -75,17 +114,4 @@ fn validate_path(file: &str) -> Result<PathBuf, String> {
     }
 
     Ok(path.to_owned())
-}
-
-/// https://github.com/rust-lang/rust/blob/1.84.0/library/std/src/panicking.rs#L747-L755
-fn downcast_panic(err: Box<dyn std::any::Any + Send>) -> String {
-    if let Some(s) = err.downcast_ref::<&'static str>() {
-        return s.to_string();
-    };
-
-    if let Some(s) = err.downcast_ref::<String>() {
-        return s.clone();
-    };
-
-    "Unknown panic".to_string()
 }

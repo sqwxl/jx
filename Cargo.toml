@@ -2,7 +2,7 @@
 name = "jx"
 description = "An interactive JSON explorer for the command line"
 authors = ["Nicolas Epstein <nilueps@gmail.com>"]
-version = "0.3.1"
+version = "0.3.2"
 homepage = "https://github.com/sqwxl/jx"
 documentation = "https://github.com/sqwxl/jx"
 repository = "https://github.com/sqwxl/jx"

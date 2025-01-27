@@ -1,6 +1,7 @@
+use std::io::{self, BufWriter, Stdout, Write};
+
 use anyhow::Result;
 use crossterm::{cursor, execute, queue, terminal};
-use std::io::{self, BufWriter, Stdout, Write};
 
 use crate::{renderer::Vec2, style::StyledStr};
 

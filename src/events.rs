@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 pub enum Direction {
     Up,
@@ -11,88 +11,77 @@ pub enum Direction {
 use Direction::*;
 
 pub enum Action {
+    Resize(usize, usize),
     Quit,
     Move(Direction),
     Scroll(Direction),
-    Resize(usize, usize),
+    ScrollPage(Direction),
     Fold,
-    Ignore,
+    OutputSelectionPretty,
+    OutputValuePretty,
+    OutputSelection,
+    OutputValue,
+    CopySelectionPretty,
+    CopyValuePretty,
     CopySelection,
-    CopyRawValue,
+    CopyValue,
+    Ignore,
 }
 
 use Action::*;
 
-pub fn user_event() -> Result<Action> {
-    let event = event::read()?;
-    match event {
+pub fn read_event() -> Result<Action> {
+    Ok(match event::read()? {
+        Event::Resize(w, h) => Resize(w as usize, h as usize),
+
         Event::Key(KeyEvent {
-            code: KeyCode::Char('q'),
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(Quit),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('c'),
-            modifiers: KeyModifiers::CONTROL,
-            kind: _,
-            state: _,
-        }) => Ok(Quit),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('k') | KeyCode::Up,
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(Move(Up)),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('j') | KeyCode::Down,
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(Move(Down)),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('h') | KeyCode::Left,
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(Move(Left)),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('l') | KeyCode::Right,
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(Move(Right)),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char(' '),
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(Fold),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('u') | KeyCode::PageUp,
-            modifiers: KeyModifiers::NONE | KeyModifiers::CONTROL,
-            kind: _,
-            state: _,
-        }) => Ok(Scroll(Up)),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('d') | KeyCode::PageDown,
-            modifiers: KeyModifiers::NONE | KeyModifiers::CONTROL,
-            kind: _,
-            state: _,
-        }) => Ok(Scroll(Down)),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('v'),
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(CopyRawValue),
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('y'),
-            modifiers: KeyModifiers::NONE,
-            kind: _,
-            state: _,
-        }) => Ok(CopySelection),
-        Event::Resize(w, h) => Ok(Resize(w as usize, h as usize)),
-        _ => Ok(Ignore),
-    }
+            code,
+            modifiers,
+            kind: KeyEventKind::Press,
+            ..
+        }) => match (code, modifiers) {
+            // Quit on 'q', 'Escape' or '^C'
+            (KeyCode::Char('q') | KeyCode::Esc, _)
+            | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Quit,
+
+            // Move on 'hjkl' or '← ↑ ↓ →'
+            (KeyCode::Char('h') | KeyCode::Left, _) => Move(Left),
+            (KeyCode::Char('j') | KeyCode::Down, _) => Move(Down),
+            (KeyCode::Char('k') | KeyCode::Up, _) => Move(Up),
+            (KeyCode::Char('l') | KeyCode::Right, _) => Move(Right),
+
+            // Toggle fold on 'Space'
+            (KeyCode::Char(' '), _) => Fold,
+
+            // Scroll up/down
+            (KeyCode::Char('u'), _) => Scroll(Up),
+            (KeyCode::Char('d'), _) => Scroll(Down),
+            (KeyCode::Char('b'), _) => ScrollPage(Up),
+            (KeyCode::Char('f'), _) => ScrollPage(Down),
+
+            // Output
+            (KeyCode::Enter, KeyModifiers::NONE) => OutputSelectionPretty,
+            (KeyCode::Enter, KeyModifiers::SHIFT) => OutputValuePretty,
+            (KeyCode::Char('o'), _) => OutputSelection,
+            (KeyCode::Char('O'), _) => OutputValue,
+
+            // Clipboard
+            (KeyCode::Char('y'), _) => CopySelectionPretty,
+            (KeyCode::Char('c'), modifiers) => {
+                if modifiers == KeyModifiers::CONTROL | KeyModifiers::SHIFT {
+                    CopySelectionPretty
+                } else {
+                    Ignore
+                }
+            }
+            (KeyCode::Char('C'), _) => CopySelectionPretty,
+            (KeyCode::Char('Y'), _) => CopyValuePretty,
+            (KeyCode::Char('r'), _) => CopySelection,
+            (KeyCode::Char('R'), _) => CopyValue,
+
+            _ => Ignore,
+        },
+
+        _ => Ignore,
+    })
 }
