@@ -14,9 +14,18 @@ pub enum Action {
     Resize(usize, usize),
     Quit,
     Move(Direction),
-    Scroll(Direction),
-    ScrollPage(Direction),
+    ScrollLine(Direction),
+    ScrollHalf(Direction),
+    ScrollFull(Direction),
     Fold,
+    Sort,
+    SortReverse,
+    Search,
+    SearchBackward,
+    RepeatSearch,
+    RepeatSearchBackward,
+    Filter,
+    ClearSearch,
     OutputSelectionPretty,
     OutputValuePretty,
     OutputSelection,
@@ -25,13 +34,15 @@ pub enum Action {
     CopyValuePretty,
     CopySelection,
     CopyValue,
+    ToggleLineNumbers,
+    ToggleLineWrapping,
     Ignore,
 }
 
 use Action::*;
 
 pub fn read_event() -> Result<Action> {
-    Ok(match event::read()? {
+    let action = match event::read()? {
         Event::Resize(w, h) => Resize(w as usize, h as usize),
 
         Event::Key(KeyEvent {
@@ -40,48 +51,51 @@ pub fn read_event() -> Result<Action> {
             kind: KeyEventKind::Press,
             ..
         }) => match (code, modifiers) {
-            // Quit on 'q', 'Escape' or '^C'
-            (KeyCode::Char('q') | KeyCode::Esc, _)
-            | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Quit,
+            (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Quit,
 
-            // Move on 'hjkl' or '← ↑ ↓ →'
             (KeyCode::Char('h') | KeyCode::Left, _) => Move(Left),
             (KeyCode::Char('j') | KeyCode::Down, _) => Move(Down),
             (KeyCode::Char('k') | KeyCode::Up, _) => Move(Up),
             (KeyCode::Char('l') | KeyCode::Right, _) => Move(Right),
 
-            // Toggle fold on 'Space'
+            (KeyCode::Char('y'), _) => ScrollLine(Up),
+            (KeyCode::Char('e'), _) => ScrollLine(Down),
+            (KeyCode::Char('u'), _) => ScrollHalf(Up),
+            (KeyCode::Char('d'), _) => ScrollHalf(Down),
+            (KeyCode::Char('b'), _) => ScrollFull(Up),
+            (KeyCode::Char('f'), _) => ScrollFull(Down),
+
             (KeyCode::Char(' '), _) => Fold,
 
-            // Scroll up/down
-            (KeyCode::Char('u'), _) => Scroll(Up),
-            (KeyCode::Char('d'), _) => Scroll(Down),
-            (KeyCode::Char('b'), _) => ScrollPage(Up),
-            (KeyCode::Char('f'), _) => ScrollPage(Down),
+            (KeyCode::Char('s'), _) => Sort,
+            (KeyCode::Char('S'), _) => SortReverse,
 
-            // Output
+            (KeyCode::Char('/'), _) => Search,
+            (KeyCode::Char('?'), _) => SearchBackward,
+            (KeyCode::Char('n'), _) => RepeatSearch,
+            (KeyCode::Char('N'), _) => RepeatSearchBackward,
+            (KeyCode::Char('&'), _) => Filter,
+            (KeyCode::Esc, _) => ClearSearch,
+
             (KeyCode::Enter, KeyModifiers::NONE) => OutputSelectionPretty,
-            (KeyCode::Enter, KeyModifiers::SHIFT) => OutputValuePretty,
+            (KeyCode::Enter, KeyModifiers::SHIFT) => OutputValuePretty, // FIXME: This keybinding isn't getting picked up
             (KeyCode::Char('o'), _) => OutputSelection,
             (KeyCode::Char('O'), _) => OutputValue,
 
-            // Clipboard
-            (KeyCode::Char('y'), _) => CopySelectionPretty,
-            (KeyCode::Char('c'), modifiers) => {
-                if modifiers == KeyModifiers::CONTROL | KeyModifiers::SHIFT {
-                    CopySelectionPretty
-                } else {
-                    Ignore
-                }
-            }
-            (KeyCode::Char('C'), _) => CopySelectionPretty,
-            (KeyCode::Char('Y'), _) => CopyValuePretty,
+            (KeyCode::Char('c'), _) => CopySelectionPretty,
+            (KeyCode::Char('C'), KeyModifiers::CONTROL) => CopySelectionPretty,
+            (KeyCode::Char('C'), _) => CopyValuePretty,
             (KeyCode::Char('r'), _) => CopySelection,
             (KeyCode::Char('R'), _) => CopyValue,
+
+            (KeyCode::Char('#'), _) => ToggleLineNumbers,
+            (KeyCode::Char('w'), _) => ToggleLineWrapping,
 
             _ => Ignore,
         },
 
         _ => Ignore,
-    })
+    };
+
+    Ok(action)
 }

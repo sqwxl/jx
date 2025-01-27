@@ -22,9 +22,11 @@ pub fn run(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<String>>
         let mut needs_redraw = false;
 
         match read_event()? {
-            Quit => {
-                break;
+            Resize(w, h) => {
+                needs_redraw = renderer.resize((w, h));
             }
+
+            Quit => break,
 
             Move(direction) => {
                 needs_redraw = match direction {
@@ -35,23 +37,21 @@ pub fn run(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<String>>
                 }
             }
 
-            Scroll(direction) => {
-                needs_redraw = match direction {
-                    Up => todo!(),
-                    Down => todo!(),
-                    _ => false,
-                }
-            }
+            ScrollLine(_) => todo!(),
+            ScrollHalf(_) => todo!(),
+            ScrollFull(_) => todo!(),
 
-            ScrollPage(direction) => {}
+            Fold => todo!(),
 
-            Resize(w, h) => {
-                needs_redraw = renderer.resize((w, h));
-            }
+            Sort => todo!(),
+            SortReverse => todo!(),
 
-            Fold => {
-                todo!();
-            }
+            Search => todo!(),
+            SearchBackward => todo!(),
+            RepeatSearch => todo!(),
+            RepeatSearchBackward => todo!(),
+            Filter => todo!(),
+            ClearSearch => todo!(),
 
             OutputSelectionPretty => {
                 if let Some((key, value)) = json.get_selection() {
@@ -99,6 +99,9 @@ pub fn run(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<String>>
                     clipboard.set_text(s)?;
                 }
             }
+
+            ToggleLineNumbers => todo!(),
+            ToggleLineWrapping => todo!(),
 
             Ignore => {}
         }

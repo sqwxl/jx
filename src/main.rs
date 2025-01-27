@@ -5,12 +5,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::{
     cursor,
-    event::{
-        DisableFocusChange, EnableFocusChange, KeyboardEnhancementFlags,
-        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-    },
+    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
     execute, queue,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -25,11 +23,19 @@ mod run;
 mod style;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-// TODO: Add --help
+#[command(version, about, long_about = None)]
 pub struct Args {
     #[arg(value_parser = validate_path)]
-    pub path: Option<PathBuf>,
+    path: Option<PathBuf>,
+
+    #[arg(long, help = "Show line numbers")]
+    numbered: bool,
+
+    #[arg(long, help = "Disable syntax highlighting")]
+    no_syntax: bool,
+
+    #[arg(long, help = "Disable color")]
+    no_color: bool,
 }
 
 fn main() -> Result<()> {
@@ -59,22 +65,22 @@ fn main() -> Result<()> {
     execute!(
         stdout,
         cursor::Hide,
-        EnableFocusChange,
-        EnterAlternateScreen,
+        EnableMouseCapture,
+        EnterAlternateScreen
     )?;
 
     let output = run::run(&args.path, parse_input(&args)?)?;
 
-    execute!(
-        stdout,
-        cursor::Show,
-        DisableFocusChange,
-        LeaveAlternateScreen,
-    )?;
-
     if supports_keyboard_enhancement {
         queue!(stdout, PopKeyboardEnhancementFlags)?;
     }
+
+    execute!(
+        stdout,
+        cursor::Show,
+        DisableMouseCapture,
+        LeaveAlternateScreen
+    )?;
 
     disable_raw_mode()?;
 
@@ -87,7 +93,7 @@ fn main() -> Result<()> {
 
 fn parse_input(args: &Args) -> Result<Json> {
     let value: serde_json::Value = if let Some(ref path) = args.path {
-        let file = File::open(path.clone())?;
+        let file = File::open(path)?;
         let reader = BufReader::new(file);
 
         serde_json::from_reader(reader)
