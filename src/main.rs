@@ -1,15 +1,13 @@
 #![allow(dead_code)]
 use std::fs::File;
-use std::io::{self, stdin, BufReader};
+use std::io::{self, stdin, BufReader, Write};
+use std::panic;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::{
-    cursor,
-    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
-    execute, queue,
+    cursor, execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
@@ -41,54 +39,48 @@ pub struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    enable_raw_mode()?;
+    setup_terminal()?;
 
-    let mut stdout = io::stdout();
+    // Exit the alternate screen and disable raw mode before panicking
+    // https://github.com/helix-editor/helix/blob/0c8f0c0334d449dd71928a697cfba0207be74a63/helix-term/src/application.rs#L1226
+    let hook = std::panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
+        let _ = restore_terminal();
+        hook(info);
+    }));
 
-    let supports_keyboard_enhancement = matches!(
-        crossterm::terminal::supports_keyboard_enhancement(),
-        Ok(true)
-    );
+    let output = run::event_loop(&args.path, parse_input(&args)?)?;
 
-    if supports_keyboard_enhancement {
-        queue!(
-            stdout,
-            PushKeyboardEnhancementFlags(
-                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES
-                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-            )
-        )?;
-    }
-
-    execute!(
-        stdout,
-        cursor::Hide,
-        EnableMouseCapture,
-        EnterAlternateScreen
-    )?;
-
-    let output = run::run(&args.path, parse_input(&args)?)?;
-
-    if supports_keyboard_enhancement {
-        queue!(stdout, PopKeyboardEnhancementFlags)?;
-    }
-
-    execute!(
-        stdout,
-        cursor::Show,
-        DisableMouseCapture,
-        LeaveAlternateScreen
-    )?;
-
-    disable_raw_mode()?;
+    restore_terminal()?;
 
     if let Some(str) = output {
         println!("{}", str);
     };
 
     Ok(())
+}
+
+fn supports_keyboard_enhancement() -> bool {
+    matches!(
+        crossterm::terminal::supports_keyboard_enhancement(),
+        Ok(true)
+    )
+}
+
+fn setup_terminal() -> io::Result<()> {
+    enable_raw_mode()?;
+
+    let mut stdout = io::stdout();
+
+    execute!(stdout, cursor::Hide, EnterAlternateScreen)
+}
+
+fn restore_terminal() -> io::Result<()> {
+    let mut stdout = io::stdout();
+
+    execute!(stdout, cursor::Show, LeaveAlternateScreen)?;
+
+    disable_raw_mode()
 }
 
 fn parse_input(args: &Args) -> Result<Json> {

@@ -9,7 +9,7 @@ use crate::json::Json;
 use crate::renderer::Renderer;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
-pub fn run(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<String>> {
+pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<String>> {
     let mut clipboard = Clipboard::new()?;
 
     let mut output: Option<String> = None;
