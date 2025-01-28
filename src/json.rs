@@ -115,9 +115,9 @@ pub struct Json {
 }
 
 impl Json {
-    pub fn new(value: &Value) -> Self {
+    pub fn new(value: Value) -> Self {
         Self {
-            value: value.clone(),
+            value,
             pointer: Pointer::new(vec![], 0),
             folds: BTreeSet::new(),
         }
@@ -337,7 +337,7 @@ mod tests {
     }
 
     fn get_state() -> Json {
-        Json::new(&get_json_value())
+        Json::new(get_json_value())
     }
 
     #[test]
@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn test_move_on_primitive() {
-        let mut state = Json::new(&json!("foo"));
+        let mut state = Json::new(json!("foo"));
         state.go_in();
         assert_eq!(state.pointer.len(), 0);
         state.go_out();

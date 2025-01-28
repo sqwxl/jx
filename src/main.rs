@@ -4,7 +4,7 @@ use std::io::{self, stdin, BufReader};
 use std::panic;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::Context;
 use clap::Parser;
 use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -40,9 +40,7 @@ pub struct Args {
     no_color: bool,
 }
 
-fn main() -> Result<()> {
-    let args = Args::parse();
-
+fn main() -> anyhow::Result<()> {
     setup_terminal()?;
 
     // Exit the alternate screen and disable raw mode before panicking
@@ -53,12 +51,20 @@ fn main() -> Result<()> {
         hook(info);
     }));
 
-    let output = run::event_loop(&args.path, parse_input(&args)?)?;
+    let result = (|| -> anyhow::Result<Option<String>> {
+        let args = Args::try_parse()?;
+
+        run::event_loop(&args.path, parse_input(&args)?)
+    })()
+    .transpose();
 
     restore_terminal()?;
 
-    if let Some(str) = output {
-        println!("{}", str);
+    if let Some(o) = result {
+        match o {
+            Ok(output) => println!("{}", output),
+            Err(e) => return Err(e),
+        }
     };
 
     Ok(())
@@ -71,7 +77,7 @@ fn supports_keyboard_enhancement() -> bool {
     )
 }
 
-fn setup_terminal() -> Result<()> {
+fn setup_terminal() -> anyhow::Result<()> {
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
@@ -103,7 +109,7 @@ fn restore_terminal() -> io::Result<()> {
     disable_raw_mode()
 }
 
-fn parse_input(args: &Args) -> Result<Json> {
+fn parse_input(args: &Args) -> anyhow::Result<Json> {
     let value: serde_json::Value = if let Some(ref path) = args.path {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -117,7 +123,7 @@ fn parse_input(args: &Args) -> Result<Json> {
         serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
     };
 
-    Ok(Json::new(&value))
+    Ok(Json::new(value))
 }
 
 fn validate_path(file: &str) -> Result<PathBuf, String> {

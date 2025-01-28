@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
 use arboard::Clipboard;
 use serde_json::{to_string_pretty, Value};
 
@@ -9,7 +8,7 @@ use crate::json::Json;
 use crate::renderer::Renderer;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
-pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<String>> {
+pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<Option<String>> {
     let mut clipboard = Clipboard::new()?;
 
     let mut output: Option<String> = None;
@@ -116,7 +115,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<S
     Ok(output)
 }
 
-fn selection(key: Option<String>, value: &Value) -> Result<String> {
+fn selection(key: Option<String>, value: &Value) -> anyhow::Result<String> {
     Ok(if let Some(key) = key {
         format!("\"{}\": {}", key, value)
     } else {
@@ -124,7 +123,7 @@ fn selection(key: Option<String>, value: &Value) -> Result<String> {
     })
 }
 
-fn selection_pretty(key: Option<String>, value: &Value) -> Result<String> {
+fn selection_pretty(key: Option<String>, value: &Value) -> anyhow::Result<String> {
     Ok(if let Some(key) = key {
         format!("\"{}\": {}", key, to_string_pretty(value)?)
     } else {
