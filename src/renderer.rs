@@ -12,6 +12,7 @@ const INDENT: usize = 4;
 
 pub type Vec2 = (usize, usize);
 
+/// Renders the JSON tree onto the display buffer.
 pub struct Renderer {
     display: Display,
     style_map: HashMap<String, StyledJson>,
@@ -29,14 +30,22 @@ impl Renderer {
         self.display.resize(size)
     }
 
-    pub fn draw(&mut self, filepath: &Option<PathBuf>, json: &mut Json) -> Result<()> {
+    /// Take a JSON object and applies styling to it.
+    fn render_json(&mut self, json: &Json) -> StyledJson {
+        self.style_map
+            .entry(json.pointer.active_path().join(""))
+            .or_insert(Styler::style_json(json))
+            .to_owned()
+    }
+
+    pub fn draw(&mut self, filepath: &Option<PathBuf>, json: &Json) -> Result<()> {
         self.draw_title((0, 0), filepath, json);
         self.draw_tree((0, 1), json);
 
         self.display.show()
     }
 
-    fn draw_title(&mut self, (x, y): Vec2, filepath: &Option<PathBuf>, json: &mut Json) {
+    fn draw_title(&mut self, (x, y): Vec2, filepath: &Option<PathBuf>, json: &Json) {
         let mut title = String::new();
 
         match &filepath {
@@ -55,7 +64,7 @@ impl Renderer {
             }
         }
 
-        let cursor = self.display.draw(
+        let (x, y) = self.display.draw(
             x,
             y,
             &StyledStr {
@@ -64,7 +73,7 @@ impl Renderer {
             },
         );
 
-        self.draw_path(cursor, json);
+        self.draw_path((x + 1, y), json);
     }
 
     fn draw_path(&mut self, (x, y): Vec2, json: &Json) {
@@ -82,8 +91,8 @@ impl Renderer {
         );
     }
 
-    fn draw_tree(&mut self, (x, y): Vec2, json: &mut Json) {
-        let styled = self.render(json);
+    fn draw_tree(&mut self, (x, y): Vec2, json: &Json) {
+        let styled = self.render_json(json);
 
         let (selection_top, selection_bottom) = styled.selection;
         self.display.clear((x, y), self.display.size, None);
@@ -104,13 +113,5 @@ impl Renderer {
             self.display.draw(x, y, styled_str);
             y += 1;
         }
-    }
-
-    /// Take a JSON object and applies styling to it.
-    pub fn render(&mut self, json: &Json) -> StyledJson {
-        self.style_map
-            .entry(json.pointer.active_path().to_owned().join("").to_string())
-            .or_insert(Styler::style_json(json))
-            .to_owned()
     }
 }

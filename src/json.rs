@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::{collections::BTreeSet, fmt::Display};
 
 use serde_json::Value;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct Pointer {
     pub path: Vec<String>,
     pub depth: usize,
@@ -39,20 +39,27 @@ impl Pointer {
         }
     }
 
-    fn move_to(&mut self, s: &str) {
+    fn move_to(&mut self, s: &str) -> &mut Self {
         self.forget();
         *self.current_mut().unwrap() = s.to_owned();
+
+        self
     }
 
-    fn push(&mut self, s: &str) {
+    fn push(&mut self, s: &str) -> &mut Self {
         self.path.push(s.to_owned());
         self.depth += 1;
+
+        self
     }
 
-    fn forget(&mut self) {
+    fn forget(&mut self) -> &mut Self {
         self.path.truncate(self.depth);
+
+        self
     }
 
+    /// Advances the pointer depth, if possible.
     fn forward(&mut self) -> bool {
         if self.depth < self.len() {
             self.depth += 1;
@@ -62,6 +69,7 @@ impl Pointer {
         }
     }
 
+    /// Rewinds the pointer depth
     fn rewind(&mut self) -> bool {
         if self.depth > 0 {
             self.depth -= 1;
@@ -99,9 +107,11 @@ impl Display for Pointer {
 }
 
 /// A parsed JSON object with a pointer to the current active node.
+#[derive(PartialEq, Eq, Hash)]
 pub struct Json {
     pub value: Value,
     pub pointer: Pointer,
+    folds: BTreeSet<String>,
 }
 
 impl Json {
@@ -109,14 +119,32 @@ impl Json {
         Self {
             value: value.clone(),
             pointer: Pointer::new(vec![], 0),
+            folds: BTreeSet::new(),
         }
+    }
+
+    pub fn toggle_fold(&mut self, path: Option<String>) -> bool {
+        let path = path.unwrap_or_else(|| self.pointer.to_path_string());
+
+        if self.folds.contains(&path) {
+            self.folds.remove(&path);
+        } else {
+            self.folds.insert(path);
+        }
+
+        true
+    }
+
+    pub fn unfold_all(&mut self) {
+        self.folds.clear();
     }
 
     pub fn go_in(&mut self) -> bool {
         if self.pointer.forward() {
+            self.folds.remove(&self.pointer.to_string());
             true
         } else if let Some(c) = self.first_child() {
-            self.pointer.push(&c);
+            self.folds.remove(&self.pointer.push(&c).to_string());
             true
         } else {
             false
@@ -129,7 +157,7 @@ impl Json {
 
     pub fn go_prev(&mut self) -> bool {
         if let Some(s) = self.prev_sibling() {
-            self.pointer.move_to(&s);
+            self.folds.remove(&self.pointer.move_to(&s).to_string());
             true
         } else {
             // self.go_out()
@@ -139,7 +167,7 @@ impl Json {
 
     pub fn go_next(&mut self) -> bool {
         if let Some(s) = self.next_sibling() {
-            self.pointer.move_to(&s);
+            self.folds.remove(&self.pointer.move_to(&s).to_string());
             true
         } else {
             // self.go_out()

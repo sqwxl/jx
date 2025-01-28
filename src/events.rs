@@ -78,7 +78,7 @@ pub fn read_event() -> Result<Action> {
             (KeyCode::Esc, _) => ClearSearch,
 
             (KeyCode::Enter, KeyModifiers::NONE) => OutputSelectionPretty,
-            (KeyCode::Enter, KeyModifiers::SHIFT) => OutputValuePretty, // FIXME: This keybinding isn't getting picked up
+            (KeyCode::Enter, KeyModifiers::SHIFT) => OutputValuePretty,
             (KeyCode::Char('o'), _) => OutputSelection,
             (KeyCode::Char('O'), _) => OutputValue,
 

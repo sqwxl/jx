@@ -1,11 +1,15 @@
 #![allow(dead_code)]
 use std::fs::File;
-use std::io::{self, stdin, BufReader, Write};
+use std::io::{self, stdin, BufReader};
 use std::panic;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use crossterm::event::{
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
+use crossterm::queue;
 use crossterm::{
     cursor, execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -67,16 +71,32 @@ fn supports_keyboard_enhancement() -> bool {
     )
 }
 
-fn setup_terminal() -> io::Result<()> {
+fn setup_terminal() -> Result<()> {
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
 
-    execute!(stdout, cursor::Hide, EnterAlternateScreen)
+    execute!(stdout, cursor::Hide, EnterAlternateScreen)?;
+
+    if supports_keyboard_enhancement() {
+        queue!(
+            stdout,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+            )
+        )?;
+    }
+
+    Ok(())
 }
 
 fn restore_terminal() -> io::Result<()> {
     let mut stdout = io::stdout();
+
+    if supports_keyboard_enhancement() {
+        queue!(stdout, PopKeyboardEnhancementFlags)?;
+    }
 
     execute!(stdout, cursor::Show, LeaveAlternateScreen)?;
 

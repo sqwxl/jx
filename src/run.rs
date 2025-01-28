@@ -16,7 +16,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<S
 
     let mut renderer = Renderer::new()?;
 
-    renderer.draw(filepath, &mut json)?;
+    renderer.draw(filepath, &json)?;
 
     loop {
         let mut needs_redraw = false;
@@ -41,7 +41,9 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<S
             ScrollHalf(_) => todo!(),
             ScrollFull(_) => todo!(),
 
-            Fold => todo!(),
+            Fold => {
+                needs_redraw = json.toggle_fold(None);
+            }
 
             Sort => todo!(),
             SortReverse => todo!(),
@@ -107,7 +109,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> Result<Option<S
         }
 
         if needs_redraw {
-            renderer.draw(filepath, &mut json)?;
+            renderer.draw(filepath, &json)?;
         }
     }
 
