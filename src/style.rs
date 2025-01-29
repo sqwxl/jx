@@ -150,7 +150,7 @@ impl Styler {
     }
 
     fn match_pointer_style(&self) -> Style {
-        if self.path.starts_with(self.pointer.active_path()) {
+        if self.path.starts_with(self.pointer.current_slice()) {
             STYLE_SELECTION
         } else {
             STYLE_INACTIVE

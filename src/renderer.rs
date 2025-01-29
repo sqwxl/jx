@@ -33,7 +33,7 @@ impl Renderer {
     /// Take a JSON object and applies styling to it.
     fn render_json(&mut self, json: &Json) -> StyledJson {
         self.style_map
-            .entry(json.pointer.active_path().join(""))
+            .entry(json.pointer.current_slice().join(""))
             .or_insert(Styler::style_json(json))
             .to_owned()
     }

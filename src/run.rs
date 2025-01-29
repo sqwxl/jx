@@ -41,7 +41,8 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             ScrollFull(_) => todo!(),
 
             Fold => {
-                needs_redraw = json.toggle_fold(None);
+                json.toggle_fold(None);
+                needs_redraw = true;
             }
 
             Sort => todo!(),

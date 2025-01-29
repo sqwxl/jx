@@ -1,105 +1,116 @@
 use std::{collections::BTreeSet, fmt::Display};
 
-use serde_json::Value;
-
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
+/// A path to a specific location in a JSON document.
+///
+/// * `pointer`: A list of Strings representing the path.
+/// * `cursor`: An index representing the current selected path element.
 pub struct Pointer {
-    pub path: Vec<String>,
-    pub depth: usize,
+    items: Vec<String>,
+    cursor: usize,
 }
 
 impl Pointer {
-    fn new(path: Vec<String>, depth: usize) -> Self {
-        Self { path, depth }
-    }
-
-    fn len(&self) -> usize {
-        self.path.len()
-    }
-
-    pub fn active_path(&self) -> &[String] {
-        &self.path[..self.depth]
-    }
-
-    fn current(&self) -> Option<&String> {
-        self.path.get(self.depth - 1)
-    }
-
-    fn current_mut(&mut self) -> Option<&mut String> {
-        self.path.get_mut(self.depth - 1)
-    }
-
-    fn parent_pointer(&self) -> Option<Self> {
-        if self.depth > 0 {
-            let depth = self.depth - 1;
-            let path = self.path[..depth].to_vec();
-            Some(Self::new(path, depth))
-        } else {
-            None
+    fn new() -> Self {
+        Self {
+            items: vec![],
+            cursor: 0,
         }
     }
 
-    fn move_to(&mut self, s: &str) -> &mut Self {
-        self.forget();
-        *self.current_mut().unwrap() = s.to_owned();
+    fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    /// Advances the pointer cursor, if possible.
+    fn forward(&mut self) -> bool {
+        if self.cursor + 1 < self.len() {
+            self.cursor += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Rewinds the pointer cursor
+    fn rewind(&mut self) -> bool {
+        if self.cursor > 0 {
+            self.cursor -= 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns the element at the cursor.
+    fn current(&self) -> Option<&String> {
+        self.items.get(self.cursor)
+    }
+
+    /// Returns a slice of the pointer elements up to, and including, the 'cursor'.
+    pub fn current_slice(&self) -> &[String] {
+        if self.items.is_empty() {
+            &[]
+        } else {
+            &self.items[..=self.cursor]
+        }
+    }
+
+    /// Changes the element at the cursor.
+    /// Also drops the elements past the cursor.
+    fn reset_cursor(&mut self, s: &str) -> &mut Self {
+        self.items.truncate(self.cursor + 1);
+
+        self.items[self.cursor] = s.to_owned();
 
         self
     }
 
     fn push(&mut self, s: &str) -> &mut Self {
-        self.path.push(s.to_owned());
-        self.depth += 1;
+        self.items.push(s.to_owned());
 
         self
     }
 
-    fn forget(&mut self) -> &mut Self {
-        self.path.truncate(self.depth);
+    /// JSON Pointer defines a string syntax for identifying a specific value
+    /// within a JavaScript Object Notation (JSON) document.
+    /// https://datatracker.ietf.org/doc/html/rfc6901
+    fn to_json_pointer(&self) -> String {
+        self.current_slice()
+            .iter()
+            .fold(String::new(), |mut acc, s| {
+                acc += format!("/{}", Self::escape_reference_token(s)).as_str();
 
-        self
+                acc
+            })
     }
 
-    /// Advances the pointer depth, if possible.
-    fn forward(&mut self) -> bool {
-        if self.depth < self.len() {
-            self.depth += 1;
-            true
-        } else {
-            false
-        }
+    fn parent_pointer(&self) -> String {
+        self.current_slice()
+            .iter()
+            .take(self.cursor)
+            .fold(String::new(), |mut acc, s| {
+                acc += format!("/{}", Self::escape_reference_token(s)).as_str();
+
+                acc
+            })
     }
 
-    /// Rewinds the pointer depth
-    fn rewind(&mut self) -> bool {
-        if self.depth > 0 {
-            self.depth -= 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    fn to_path_string(&self) -> String {
-        let s = self.path[..self.depth].join("/");
-
-        if s.is_empty() {
-            s
-        } else {
-            format!("/{}", s)
-        }
+    fn escape_reference_token(s: &str) -> String {
+        s.replace("/", "~1").replace("~", "~0")
     }
 }
 
 impl Display for Pointer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.depth == 0 {
+        if self.cursor == 0 {
             write!(f, ".")?;
             return Ok(());
         }
 
-        self.path
+        self.items
             .iter()
-            .take(self.depth)
+            .take(self.cursor + 1)
             .for_each(|p| write!(f, ".{}", p).unwrap());
 
         Ok(())
@@ -109,30 +120,36 @@ impl Display for Pointer {
 /// A parsed JSON object with a pointer to the current active node.
 #[derive(PartialEq, Eq, Hash)]
 pub struct Json {
-    pub value: Value,
+    pub value: serde_json::Value,
     pub pointer: Pointer,
     folds: BTreeSet<String>,
 }
 
 impl Json {
-    pub fn new(value: Value) -> Self {
+    pub fn new(value: serde_json::Value) -> Self {
         Self {
             value,
-            pointer: Pointer::new(vec![], 0),
+            pointer: Pointer::new(),
             folds: BTreeSet::new(),
         }
     }
 
-    pub fn toggle_fold(&mut self, path: Option<String>) -> bool {
-        let path = path.unwrap_or_else(|| self.pointer.to_path_string());
+    pub fn toggle_fold(&mut self, json_pointer: Option<String>) {
+        let pointer = json_pointer.unwrap_or_else(|| self.pointer.to_json_pointer());
 
-        if self.folds.contains(&path) {
-            self.folds.remove(&path);
+        if self.folds.contains(&pointer) {
+            self.folds.remove(&pointer);
         } else {
-            self.folds.insert(path);
+            self.folds.insert(pointer);
         }
+    }
 
-        true
+    fn fold(&mut self, pointer: String) {
+        self.folds.insert(pointer);
+    }
+
+    fn unfold(&mut self, pointer: String) {
+        self.folds.remove(&pointer);
     }
 
     pub fn unfold_all(&mut self) {
@@ -141,10 +158,11 @@ impl Json {
 
     pub fn go_in(&mut self) -> bool {
         if self.pointer.forward() {
-            self.folds.remove(&self.pointer.to_string());
+            self.unfold(self.pointer.to_json_pointer());
             true
         } else if let Some(c) = self.first_child() {
-            self.folds.remove(&self.pointer.push(&c).to_string());
+            self.pointer.push(&c).forward();
+            self.unfold(self.pointer.to_json_pointer());
             true
         } else {
             false
@@ -157,7 +175,8 @@ impl Json {
 
     pub fn go_prev(&mut self) -> bool {
         if let Some(s) = self.prev_sibling() {
-            self.folds.remove(&self.pointer.move_to(&s).to_string());
+            self.pointer.reset_cursor(&s);
+            self.unfold(self.pointer.to_json_pointer());
             true
         } else {
             // self.go_out()
@@ -167,7 +186,8 @@ impl Json {
 
     pub fn go_next(&mut self) -> bool {
         if let Some(s) = self.next_sibling() {
-            self.folds.remove(&self.pointer.move_to(&s).to_string());
+            self.pointer.reset_cursor(&s);
+            self.unfold(self.pointer.to_json_pointer());
             true
         } else {
             // self.go_out()
@@ -176,21 +196,26 @@ impl Json {
     }
 
     /// Gets the JSON value at the current, or given, pointer location.
-    pub fn get_value(&self, pointer_str: Option<&str>) -> Option<&Value> {
+    pub fn get_value(&self, pointer_str: Option<String>) -> Option<&serde_json::Value> {
         if let Some(str) = pointer_str {
-            self.value.pointer(str)
+            self.value.pointer(&str)
         } else {
-            self.value.pointer(&self.pointer.to_path_string())
+            self.value.pointer(&self.pointer.to_json_pointer())
         }
+    }
+
+    /// Gets the parent value of the current pointer location.
+    fn get_parent_value(&self) -> Option<&serde_json::Value> {
+        self.get_value(Some(self.pointer.parent_pointer()))
     }
 
     /// Get the key of the value at the current pointer location.
     fn get_key(&self) -> Option<String> {
-        self.pointer.path.last().map(|s| s.to_string())
+        self.pointer.current().map(|s| s.to_string())
     }
 
     /// Get selection (key and value)
-    pub fn get_selection(&self) -> Option<(Option<String>, &Value)> {
+    pub fn get_selection(&self) -> Option<(Option<String>, &serde_json::Value)> {
         let value = self.get_value(None)?;
 
         Some(if self.value_is_array_element() {
@@ -206,25 +231,16 @@ impl Json {
             .unwrap_or(false)
     }
 
-    /// Gets the parent value of the current pointer location.
-    fn get_parent_value(&self) -> Option<&Value> {
-        if let Some(parent) = self.pointer.parent_pointer() {
-            self.get_value(Some(&parent.to_path_string()))
-        } else {
-            None
-        }
-    }
-
     /// Gets the first child of an object or array
     pub fn first_child(&self) -> Option<String> {
         if let Some(v) = self.get_value(None) {
             match v {
-                Value::Object(o) => {
+                serde_json::Value::Object(o) => {
                     if let Some(key) = o.keys().next() {
                         return Some(key.to_owned());
                     }
                 }
-                Value::Array(a) => {
+                serde_json::Value::Array(a) => {
                     if !a.is_empty() {
                         return Some("0".to_owned());
                     }
@@ -241,12 +257,12 @@ impl Json {
     pub fn last_child(&self) -> Option<String> {
         if let Some(v) = self.get_value(None) {
             match v {
-                Value::Object(o) => {
+                serde_json::Value::Object(o) => {
                     if let Some(key) = o.keys().last() {
                         return Some(key.to_owned());
                     }
                 }
-                Value::Array(a) => {
+                serde_json::Value::Array(a) => {
                     if !a.is_empty() {
                         let last_idx = a.len() - 1;
                         return Some(last_idx.to_string());
@@ -260,20 +276,19 @@ impl Json {
     }
 
     /// Gets the previous sibling element for a given pointer index.
-    /// If `idx` is `None`, the last element in the pointer is used.
     pub fn prev_sibling(&self) -> Option<String> {
         if let Some(v) = self.get_parent_value() {
             match v {
-                Value::Object(o) => {
+                serde_json::Value::Object(o) => {
                     let key_idx = o
                         .keys()
-                        .position(|k| k == self.pointer.current().unwrap())
-                        .unwrap();
+                        .position(|k| Some(k) == self.pointer.current())
+                        .expect("key matching current pointer cursor should be present");
                     if key_idx > 0 {
                         return Some(o.keys().nth(key_idx - 1).unwrap().to_string());
                     }
                 }
-                Value::Array(_) => {
+                serde_json::Value::Array(_) => {
                     let idx = self.pointer.current().unwrap().parse::<usize>().unwrap();
                     if idx > 0 {
                         return Some((idx - 1).to_string());
@@ -286,20 +301,19 @@ impl Json {
     }
 
     /// Gets the next sibling element for a given pointer index.
-    /// If `idx` is `None`, the last element in the pointer is used.
     pub fn next_sibling(&self) -> Option<String> {
         if let Some(v) = self.get_parent_value() {
             match v {
-                Value::Object(o) => {
+                serde_json::Value::Object(o) => {
                     let key_idx = o
                         .keys()
-                        .position(|k| k == self.pointer.current().unwrap())
+                        .position(|k| Some(k) == self.pointer.current())
                         .unwrap();
                     if key_idx < (o.keys().len() - 1) {
                         return Some(o.keys().nth(key_idx + 1).unwrap().to_string());
                     }
                 }
-                Value::Array(a) => {
+                serde_json::Value::Array(a) => {
                     let idx = self.pointer.current().unwrap().parse::<usize>().unwrap();
                     if idx < a.len() - 1 {
                         return Some((idx + 1).to_string());
@@ -332,7 +346,7 @@ mod tests {
     ]
 }"#;
 
-    fn get_json_value() -> Value {
+    fn get_json_value() -> serde_json::Value {
         serde_json::from_str(J).unwrap()
     }
 
@@ -343,7 +357,7 @@ mod tests {
     #[test]
     fn test_pointer_str() {
         let state = get_state();
-        assert_eq!(state.pointer.to_path_string().as_str(), "");
+        assert_eq!(state.pointer.to_json_pointer().as_str(), "");
     }
 
     #[test]
@@ -381,9 +395,9 @@ mod tests {
     fn test_go_in_out() {
         let mut state = get_state();
         state.go_in();
-        assert_eq!(state.pointer.path, vec!["a"]);
+        assert_eq!(state.pointer.items, vec!["a"]);
         state.go_out();
-        assert_eq!(state.pointer.path, vec!["a"]);
+        assert_eq!(state.pointer.items, vec!["a"]);
     }
 
     #[test]
@@ -391,9 +405,9 @@ mod tests {
         let mut state = get_state();
         state.go_in();
         state.go_next();
-        assert_eq!(state.pointer.path, vec!["b"]);
+        assert_eq!(state.pointer.items, vec!["b"]);
         state.go_prev();
-        assert_eq!(state.pointer.path, vec!["a"]);
+        assert_eq!(state.pointer.items, vec!["a"]);
     }
 
     #[test]
@@ -406,7 +420,7 @@ mod tests {
         state.go_next(); // "d"
         state.go_next(); // "e" (array)
         state.go_in(); // "0"
-        assert_eq!(state.pointer.path, vec!["e", "0"]);
+        assert_eq!(state.pointer.items, vec!["e", "0"]);
     }
 
     #[test]
@@ -424,6 +438,6 @@ mod tests {
         state.go_in(); // "0" (array)
         state.go_next(); // "1"
         state.go_in(); // "qux" (object)
-        assert_eq!(state.pointer.path, vec!["e", "1", "bar", "1", "qux"]);
+        assert_eq!(state.pointer.items, vec!["e", "1", "bar", "1", "qux"]);
     }
 }
