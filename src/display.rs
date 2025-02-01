@@ -72,7 +72,9 @@ impl Display {
                 i = 0;
             }
 
-            self.buf[i + j * self.size.0] = Some((style.to_owned(), char));
+            let index = (i + j * self.size.0).clamp(0, self.buf.len() - 1);
+
+            self.buf[index] = Some((style.to_owned(), char));
 
             i += 1;
         }

@@ -25,7 +25,7 @@ pub struct StyledStr {
 
 pub struct Styler {
     pointer: Pointer,
-    prefix: Option<String>,
+    key: Option<String>,
     depth: usize,
     path: Vec<String>,
     lines: Vec<(usize, StyledStr)>,
@@ -36,7 +36,7 @@ impl Styler {
     fn new(pointer: Pointer) -> Self {
         Self {
             pointer,
-            prefix: None,
+            key: None,
             depth: 0,
             path: Vec::new(),
             lines: Vec::new(),
@@ -58,9 +58,9 @@ impl Styler {
 
     fn push_line(&mut self, text: &str) {
         let mut text = text.to_owned();
-        if let Some(prefix) = &self.prefix {
+        if let Some(prefix) = &self.key {
             text = format!("{}{}", prefix, text);
-            self.prefix = None;
+            self.key = None;
         }
 
         let style = self.match_pointer_style();
@@ -111,7 +111,7 @@ impl Styler {
             } else {
                 *self.path.last_mut().unwrap() = key.to_owned();
             }
-            self.prefix = Some(format!("\"{}\": ", key));
+            self.key = Some(format!("\"{}\": ", key));
             self.style_json_recursive(value);
             if idx < map.len() - 1 {
                 self.append_str(",");
@@ -150,7 +150,7 @@ impl Styler {
     }
 
     fn match_pointer_style(&self) -> Style {
-        if self.path.starts_with(self.pointer.current_slice()) {
+        if self.path.starts_with(&self.pointer.tokens()) {
             STYLE_SELECTION
         } else {
             STYLE_INACTIVE

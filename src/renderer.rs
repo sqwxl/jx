@@ -15,7 +15,7 @@ pub type Vec2 = (usize, usize);
 /// Renders the JSON tree onto the display buffer.
 pub struct Renderer {
     display: Display,
-    style_map: HashMap<String, StyledJson>,
+    style_map: HashMap<Vec<String>, StyledJson>,
 }
 
 impl Renderer {
@@ -33,7 +33,7 @@ impl Renderer {
     /// Take a JSON object and applies styling to it.
     fn render_json(&mut self, json: &Json) -> StyledJson {
         self.style_map
-            .entry(json.pointer.current_slice().join(""))
+            .entry(json.tokens())
             .or_insert(Styler::style_json(json))
             .to_owned()
     }
@@ -79,14 +79,12 @@ impl Renderer {
     fn draw_path(&mut self, (x, y): Vec2, json: &Json) {
         self.display.clear((x, y), (self.display.size.0, 1), None);
 
-        let path = format!("{}", json.pointer);
-
         self.display.draw(
             x,
             y,
             &StyledStr {
                 style: crate::style::STYLE_POINTER,
-                text: path,
+                text: json.path(),
             },
         );
     }
@@ -101,14 +99,17 @@ impl Renderer {
 
         let top = if selection_top < h / 2 {
             0
-        } else if selection_bottom > styled.lines.len() - h / 2 {
+        } else if selection_bottom + h / 2 > styled.lines.len() && h < styled.lines.len() {
             styled.lines.len() - h
         } else {
             selection_top - h / 2
         };
 
         let mut y = y;
-        for (depth, styled_str) in styled.lines.iter().skip(top).take(h) {
+        for (depth, styled_str) in styled.lines.iter().skip(top) {
+            if y >= self.display.size.1 {
+                break;
+            }
             let x = x + depth * INDENT;
             self.display.draw(x, y, styled_str);
             y += 1;

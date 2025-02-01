@@ -41,7 +41,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             ScrollFull(_) => todo!(),
 
             Fold => {
-                json.toggle_fold(None);
+                json.toggle_fold();
                 needs_redraw = true;
             }
 
@@ -62,7 +62,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 }
             }
             OutputValuePretty => {
-                if let Some(value) = json.get_value(None) {
+                if let Some(value) = json.get_current_value() {
                     output = Some(value.to_string());
                     break;
                 }
@@ -74,7 +74,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 }
             }
             OutputValue => {
-                if let Some(value) = json.get_value(None) {
+                if let Some(value) = json.get_current_value() {
                     output = Some(value.to_string());
                     break;
                 }
@@ -87,7 +87,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 }
             }
             CopyValuePretty => {
-                if let Some(s) = json.get_value(None).map(to_string_pretty) {
+                if let Some(s) = json.get_current_value().map(to_string_pretty) {
                     clipboard.set_text(s?)?;
                 }
             }
@@ -97,7 +97,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 }
             }
             CopyValue => {
-                if let Some(s) = json.get_value(None).map(|v| v.to_string()) {
+                if let Some(s) = json.get_current_value().map(|v| v.to_string()) {
                     clipboard.set_text(s)?;
                 }
             }

@@ -123,7 +123,7 @@ fn parse_input(args: &Args) -> anyhow::Result<Json> {
         serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
     };
 
-    Ok(Json::new(value))
+    Ok(Json::from(value))
 }
 
 fn validate_path(file: &str) -> Result<PathBuf, String> {
