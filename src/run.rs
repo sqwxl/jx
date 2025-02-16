@@ -5,24 +5,26 @@ use serde_json::{to_string_pretty, Value};
 
 use crate::events::{read_event, Action::*, Direction::*};
 use crate::json::Json;
-use crate::renderer::Renderer;
+use crate::ui::UI;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
-pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<Option<String>> {
+pub fn event_loop(
+    filepath: &Option<PathBuf>,
+    mut json: Json,
+    mut ui: UI,
+) -> anyhow::Result<Option<String>> {
     let mut clipboard = Clipboard::new()?;
 
     let mut output: Option<String> = None;
 
-    let mut renderer = Renderer::new()?;
-
-    renderer.draw(filepath, &json)?;
+    ui.render(filepath, &json)?;
 
     loop {
         let mut needs_redraw = false;
 
         match read_event()? {
             Resize(w, h) => {
-                needs_redraw = renderer.resize((w, h));
+                needs_redraw = ui.resize((w, h));
             }
 
             Quit => break,
@@ -109,7 +111,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
         }
 
         if needs_redraw {
-            renderer.draw(filepath, &json)?;
+            ui.render(filepath, &json)?;
         }
     }
 

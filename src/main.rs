@@ -6,23 +6,22 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::Parser;
-use crossterm::event::{
-    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-};
-use crossterm::queue;
 use crossterm::{
-    cursor, execute,
+    cursor,
+    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
+    execute, queue,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 use crate::json::Json;
+use crate::ui::UI;
 
-mod display;
 mod events;
+mod formatter;
 mod json;
-mod renderer;
 mod run;
-mod style;
+mod screen;
+mod ui;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -41,20 +40,16 @@ pub struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
-    setup_terminal()?;
+    prepare_terminal()?;
 
-    // Exit the alternate screen and disable raw mode before panicking
-    // https://github.com/helix-editor/helix/blob/0c8f0c0334d449dd71928a697cfba0207be74a63/helix-term/src/application.rs#L1226
-    let hook = std::panic::take_hook();
-    panic::set_hook(Box::new(move |info| {
-        let _ = restore_terminal();
-        hook(info);
-    }));
+    setup_panic_hook();
 
     let result = (|| -> anyhow::Result<Option<String>> {
         let args = Args::try_parse()?;
 
-        run::event_loop(&args.path, parse_input(&args)?)
+        let (json, ui) = parse_input(&args)?;
+
+        run::event_loop(&args.path, json, ui)
     })()
     .transpose();
 
@@ -70,6 +65,37 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Parses input from a file or stdin and returns runtime structs.
+fn parse_input(args: &Args) -> anyhow::Result<(Json, UI)> {
+    let value: serde_json::Value = if let Some(ref path) = args.path {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+
+        serde_json::from_reader(reader)
+            .context(format!("Error parsing JSON from file {}.", path.display()))?
+    } else {
+        let stdin = stdin();
+        let reader = stdin.lock();
+
+        serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
+    };
+
+    let ui = UI::from(&value);
+    let json = Json::from(&value);
+
+    Ok((json, ui))
+}
+
+/// Sets up a hook that will restore the terminal on panic.
+/// See: https://github.com/helix-editor/helix/blob/0c8f0c0334d449dd71928a697cfba0207be74a63/helix-term/src/application.rs#L1226
+fn setup_panic_hook() {
+    let hook = std::panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
+        let _ = restore_terminal();
+        hook(info);
+    }));
+}
+
 fn supports_keyboard_enhancement() -> bool {
     matches!(
         crossterm::terminal::supports_keyboard_enhancement(),
@@ -77,12 +103,17 @@ fn supports_keyboard_enhancement() -> bool {
     )
 }
 
-fn setup_terminal() -> anyhow::Result<()> {
+/// Puts the terminal into raw mode, (this lets us read raw key presses),
+/// hides the cursor, enables the alternate screen, and
+/// optionally enables keyboard enhancement.
+fn prepare_terminal() -> anyhow::Result<()> {
     enable_raw_mode()?;
 
     let mut stdout = io::stdout();
 
-    execute!(stdout, cursor::Hide, EnterAlternateScreen)?;
+    execute!(stdout, cursor::Hide)?;
+
+    execute!(stdout, EnterAlternateScreen)?;
 
     if supports_keyboard_enhancement() {
         queue!(
@@ -97,6 +128,7 @@ fn setup_terminal() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Restores the terminal to its default state.
 fn restore_terminal() -> io::Result<()> {
     let mut stdout = io::stdout();
 
@@ -107,23 +139,6 @@ fn restore_terminal() -> io::Result<()> {
     execute!(stdout, cursor::Show, LeaveAlternateScreen)?;
 
     disable_raw_mode()
-}
-
-fn parse_input(args: &Args) -> anyhow::Result<Json> {
-    let value: serde_json::Value = if let Some(ref path) = args.path {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-
-        serde_json::from_reader(reader)
-            .context(format!("Error parsing JSON from file {}.", path.display()))?
-    } else {
-        let stdin = stdin();
-        let reader = stdin.lock();
-
-        serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
-    };
-
-    Ok(Json::from(value))
 }
 
 fn validate_path(file: &str) -> Result<PathBuf, String> {
