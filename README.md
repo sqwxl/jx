@@ -55,7 +55,7 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 - [ ] Sorting.
 - [ ] Scrolling.
 - [ ] Folding.
-- [ ] Syntax highlighting.
+- [x] Syntax highlighting.
 - [ ] Multiple files.
 - [ ] Broken files.
 - [ ] Line numbers.
