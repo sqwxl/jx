@@ -2,22 +2,14 @@ use std::io::{self, BufWriter, Stdout, Write};
 
 use crossterm::{cursor, execute, style::ResetColor, terminal};
 
-use crate::ui::Vec2;
-
 pub struct Screen {
-    pub size: Vec2,
+    pub size: (usize, usize),
     pub out: BufWriter<Stdout>,
-}
-
-impl Default for Screen {
-    fn default() -> Self {
-        Self::new().unwrap()
-    }
 }
 
 impl Screen {
     pub fn new() -> anyhow::Result<Self> {
-        let size: Vec2 = terminal::size().map(|s| (s.0 as usize, s.1 as usize))?;
+        let size = terminal::size().map(|s| (s.0 as usize, s.1 as usize))?;
 
         Ok(Screen {
             size,
@@ -25,7 +17,7 @@ impl Screen {
         })
     }
 
-    pub fn resize(&mut self, size: Vec2) -> bool {
+    pub fn resize(&mut self, size: (usize, usize)) -> bool {
         if self.size != size {
             self.size = size;
 

@@ -2,62 +2,32 @@ use std::path::PathBuf;
 
 use crossterm::{
     cursor, queue,
-    style::{
-        Attribute, Attributes, Color, ContentStyle, PrintStyledContent, ResetColor, SetAttributes,
-        SetUnderlineColor,
-    },
+    style::{Print, PrintStyledContent, ResetColor, SetAttributes, SetUnderlineColor},
 };
 
 use crate::{
-    formatter::{self, PointerMap, StyledLine},
-    json::Json,
+    json::{bracket_fold, curly_fold, Json, NodeType, PointerData},
     screen::Screen,
+    style::{StyledLine, STYLE_POINTER, STYLE_SELECTION, STYLE_TITLE},
 };
-
-pub const STYLE_SELECTION: ContentStyle = ContentStyle {
-    foreground_color: None,
-    background_color: None,
-    attributes: Attributes::with(Attributes::none(), Attribute::Underlined),
-    underline_color: Some(Color::White),
-};
-
-const STYLE_TITLE: ContentStyle = ContentStyle {
-    foreground_color: Some(Color::White),
-    background_color: None,
-    attributes: Attributes::none(),
-    underline_color: None,
-};
-
-const STYLE_POINTER: ContentStyle = STYLE_TITLE;
-
-pub type Vec2 = (usize, usize);
 
 /// Builds the UI and sends it off to be rendered.
-#[derive(Default)]
 pub struct UI {
-    json_lines: Vec<StyledLine>,
-    pointer_map: PointerMap,
     screen: Screen,
     header_height: usize,
     footer_height: usize,
 }
 
-impl From<&serde_json::Value> for UI {
-    fn from(value: &serde_json::Value) -> Self {
-        let (json_lines, pointer_map) = formatter::format(value);
-
-        Self {
-            json_lines,
-            pointer_map,
+impl UI {
+    pub fn new() -> anyhow::Result<Self> {
+        Ok(Self {
+            screen: Screen::new()?,
             header_height: 1,
             footer_height: 0,
-            ..Default::default()
-        }
+        })
     }
-}
 
-impl UI {
-    pub fn resize(&mut self, size: Vec2) -> bool {
+    pub fn resize(&mut self, size: (usize, usize)) -> bool {
         self.screen.resize(size)
     }
 
@@ -65,7 +35,11 @@ impl UI {
         self.screen.clear()?;
 
         self.render_header(filepath, &json.path())?;
-        self.render_body(json, (0, self.header_height))?;
+        self.render_body(
+            json,
+            (0, self.header_height),
+            (self.screen.size.0, self.screen.size.1 - self.header_height),
+        )?;
 
         self.screen.print()
     }
@@ -106,30 +80,61 @@ impl UI {
         Ok(())
     }
 
-    fn render_body(&mut self, json: &Json, offset: (usize, usize)) -> anyhow::Result<()> {
-        let selection_bounds = match self.pointer_map.get(&json.tokens()) {
-            Some(&bounds) => bounds,
-            None => (0, self.json_lines.len()),
+    fn render_body(
+        &mut self,
+        json: &Json,
+        offset: (usize, usize),
+        size: (usize, usize),
+    ) -> anyhow::Result<()> {
+        let selection_bounds = match json.pointer_map.get(&json.tokens()) {
+            Some(&PointerData { bounds, .. }) => bounds,
+            None => (0, json.formatted.len()),
         };
 
-        let json_lines = &self.json_lines;
+        // TODO: Skip to visible line
+        let mut line_idx = 0;
 
-        for (
-            j,
-            StyledLine {
-                elements,
-                indent,
-                line_number,
-            },
-        ) in json_lines.iter().enumerate()
+        let mut cursor_y = offset.1;
+
+        while let Some(StyledLine {
+            line_number,
+            indent,
+            pointer,
+            elements,
+        }) = json.formatted.get(line_idx)
         {
+            if cursor_y >= size.1 {
+                break;
+            }
+
             queue!(
                 self.screen.out,
-                cursor::MoveTo((*indent + offset.0) as u16, (j + offset.1) as u16,),
+                cursor::MoveTo((*indent + offset.0) as u16, (cursor_y) as u16,),
                 ResetColor
             )?;
 
-            for (text, style) in elements.iter() {
+            cursor_y += 1;
+
+            if json.folds.contains(pointer) {
+                let &PointerData {
+                    node_type,
+                    bounds,
+                    children,
+                } = json.pointer_map.get(pointer).unwrap();
+                let fold_string = match node_type {
+                    NodeType::Object => curly_fold(children),
+                    NodeType::Array => bracket_fold(children),
+                    NodeType::Value => vec![],
+                };
+
+                fold_string
+                    .iter()
+                    .for_each(|el| queue!(self.screen.out, Print(el)).expect("should print"));
+                line_idx = bounds.1 + 1;
+                continue;
+            }
+
+            for el in elements.iter() {
                 if selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1 {
                     queue!(
                         self.screen.out,
@@ -137,10 +142,11 @@ impl UI {
                         SetUnderlineColor(STYLE_SELECTION.underline_color.unwrap())
                     )?;
                 }
-                queue!(self.screen.out, PrintStyledContent(style.apply(text)))?;
+                queue!(self.screen.out, Print(el))?;
             }
-        }
 
+            line_idx += 1;
+        }
         Ok(())
     }
 

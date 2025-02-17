@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, stdin, BufReader};
 use std::panic;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use anyhow::Context;
 use clap::Parser;
@@ -14,13 +15,12 @@ use crossterm::{
 };
 
 use crate::json::Json;
-use crate::ui::UI;
 
 mod events;
-mod formatter;
 mod json;
 mod run;
 mod screen;
+mod style;
 mod ui;
 
 #[derive(Parser, Debug)]
@@ -47,9 +47,9 @@ fn main() -> anyhow::Result<()> {
     let result = (|| -> anyhow::Result<Option<String>> {
         let args = Args::try_parse()?;
 
-        let (json, ui) = parse_input(&args)?;
+        let json = parse_input(&args)?;
 
-        run::event_loop(&args.path, json, ui)
+        run::event_loop(&args.path, json)
     })()
     .transpose();
 
@@ -66,7 +66,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 /// Parses input from a file or stdin and returns runtime structs.
-fn parse_input(args: &Args) -> anyhow::Result<(Json, UI)> {
+fn parse_input(args: &Args) -> anyhow::Result<Json> {
     let value: serde_json::Value = if let Some(ref path) = args.path {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -80,10 +80,9 @@ fn parse_input(args: &Args) -> anyhow::Result<(Json, UI)> {
         serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
     };
 
-    let ui = UI::from(&value);
-    let json = Json::from(&value);
+    let json = Json::from(Rc::new(value));
 
-    Ok((json, ui))
+    Ok(json)
 }
 
 /// Sets up a hook that will restore the terminal on panic.

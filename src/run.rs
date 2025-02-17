@@ -8,12 +8,10 @@ use crate::json::Json;
 use crate::ui::UI;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
-pub fn event_loop(
-    filepath: &Option<PathBuf>,
-    mut json: Json,
-    mut ui: UI,
-) -> anyhow::Result<Option<String>> {
+pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<Option<String>> {
     let mut clipboard = Clipboard::new()?;
+
+    let mut ui = UI::new()?;
 
     let mut output: Option<String> = None;
 
@@ -43,8 +41,7 @@ pub fn event_loop(
             ScrollFull(_) => todo!(),
 
             Fold => {
-                json.toggle_fold();
-                needs_redraw = true;
+                needs_redraw = json.toggle_fold();
             }
 
             Sort => todo!(),

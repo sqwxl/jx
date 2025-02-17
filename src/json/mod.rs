@@ -1,24 +1,33 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
-use pointer::Pointer;
+pub use formatter::*;
+pub use pointer::Pointer;
 pub use token::Token;
 
+use crate::style::StyledLine;
+
+mod formatter;
 mod pointer;
 mod token;
 
 /// A parsed JSON object with a pointer to the current active node.
 pub struct Json {
     pointer: Pointer,
-    pub value: serde_json::Value,
+    pub value: Rc<serde_json::Value>,
     pub folds: HashSet<Vec<Token>>,
+    pub formatted: Vec<StyledLine>,
+    pub pointer_map: PointerMap,
 }
 
-impl From<&serde_json::Value> for Json {
-    fn from(value: &serde_json::Value) -> Self {
+impl From<Rc<serde_json::Value>> for Json {
+    fn from(value: Rc<serde_json::Value>) -> Self {
+        let (formatted, pointer_map) = Formatter::format(Rc::clone(&value));
         Self {
-            value: value.to_owned(),
+            value,
             pointer: Pointer::new(),
             folds: HashSet::new(),
+            formatted,
+            pointer_map,
         }
     }
 }
@@ -36,13 +45,20 @@ impl Json {
         self.pointer.to_string()
     }
 
-    pub fn toggle_fold(&mut self) {
-        let tokens = self.tokens();
-
-        if self.folds.contains(&tokens) {
-            self.unfold(&tokens);
+    pub fn toggle_fold(&mut self) -> bool {
+        if self
+            .get_current_value()
+            .is_some_and(|v| !v.is_object() && !v.is_array())
+        {
+            false
         } else {
-            self.fold(tokens);
+            let tokens = self.tokens();
+
+            if self.folds.contains(&tokens) {
+                self.unfold(&tokens)
+            } else {
+                self.fold(tokens)
+            }
         }
     }
 
@@ -50,15 +66,17 @@ impl Json {
         self.folds.clear();
     }
 
-    fn fold(&mut self, tokens: Vec<Token>) {
-        self.folds.insert(tokens);
+    fn fold(&mut self, tokens: Vec<Token>) -> bool {
+        self.folds.insert(tokens)
     }
 
-    fn unfold(&mut self, tokens: &[Token]) {
-        self.folds.remove(tokens);
+    fn unfold(&mut self, tokens: &[Token]) -> bool {
+        self.folds.remove(tokens)
     }
 
     pub fn go_in(&mut self) -> bool {
+        self.unfold(&self.tokens());
+
         if !self.pointer.is_at_end() {
             let tokens = self.pointer.forward().tokens();
 
@@ -256,14 +274,30 @@ impl Json {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::rc::Rc;
+
     use serde_json::json;
 
-    use super::Json;
-    use super::Token;
+    use super::*;
+
+    impl From<serde_json::Value> for Json {
+        fn from(value: serde_json::Value) -> Self {
+            let rc_value = Rc::new(value);
+            let (formatted, pointer_map) = Formatter::format(Rc::clone(&rc_value));
+            Self {
+                value: rc_value,
+                pointer: Pointer::new(),
+                folds: HashSet::new(),
+                formatted,
+                pointer_map,
+            }
+        }
+    }
 
     #[test]
     fn toggle_fold() {
-        let mut json = Json::from(&json!({"a": {"b": 0}}));
+        let mut json = Json::from(json!({"a": {"b": 0}}));
         json.toggle_fold();
         assert_eq!(json.folds, std::collections::HashSet::from([vec![]]));
 
@@ -285,7 +319,7 @@ mod tests {
     #[test]
     fn move_around() {
         let value = json!({ "a": [0, { "/": "foo", "~": [true, null] }] });
-        let mut json = Json::from(&value);
+        let mut json = Json::from(value.clone());
         assert_eq!(json.get_current_value(), value.pointer(""));
         assert!(json.go_in());
         assert_eq!(json.get_current_value(), value.pointer("/a"));
@@ -321,19 +355,19 @@ mod tests {
 
     #[test]
     fn go_in_object_no_op() {
-        let mut json = Json::from(&json!({}));
+        let mut json = Json::from(json!({}));
         assert!(!json.go_in());
     }
 
     #[test]
     fn go_in_array_no_op() {
-        let mut json = Json::from(&json!([]));
+        let mut json = Json::from(json!([]));
         assert!(!json.go_in());
     }
 
     #[test]
     fn go_in_object() {
-        let mut json = Json::from(&json!({"a": {"b": 0}}));
+        let mut json = Json::from(json!({"a": {"b": 0}}));
         assert!(json.go_in());
         assert_eq!(json.tokens(), vec!["a"]);
         assert!(json.go_in());
@@ -342,7 +376,7 @@ mod tests {
 
     #[test]
     fn go_in_array() {
-        let mut json = Json::from(&json!([["a"]]));
+        let mut json = Json::from(json!([["a"]]));
         assert!(json.go_in());
         assert_eq!(json.tokens(), vec!["0"]);
         assert!(json.go_in());
@@ -351,7 +385,7 @@ mod tests {
 
     #[test]
     fn go_out_object() {
-        let mut json = Json::from(&json!({"a":0}));
+        let mut json = Json::from(json!({"a":0}));
         assert!(json.go_in());
         assert!(json.go_out());
         assert_eq!(json.tokens(), vec!["a"]);
@@ -360,7 +394,7 @@ mod tests {
 
     #[test]
     fn go_out_array() {
-        let mut json = Json::from(&json!(["a"]));
+        let mut json = Json::from(json!(["a"]));
         assert!(json.go_in());
         assert!(json.go_out());
         assert_eq!(json.tokens(), vec!["0"]);
@@ -369,7 +403,7 @@ mod tests {
 
     #[test]
     fn go_next_object() {
-        let mut json = Json::from(&json!({"a": 0, "b": 1}));
+        let mut json = Json::from(json!({"a": 0, "b": 1}));
         assert!(json.go_in());
         assert!(json.go_next());
         assert_eq!(json.tokens(), vec!["b"]);
@@ -379,7 +413,7 @@ mod tests {
 
     #[test]
     fn go_next_array() {
-        let mut json = Json::from(&json!(["a", "b"]));
+        let mut json = Json::from(json!(["a", "b"]));
         assert!(json.go_in());
         assert!(json.go_next());
         assert_eq!(json.tokens(), vec!["1"]);
@@ -389,7 +423,7 @@ mod tests {
 
     #[test]
     fn go_prev_object() {
-        let mut json = Json::from(&json!({"a": 0, "b": 1}));
+        let mut json = Json::from(json!({"a": 0, "b": 1}));
         assert!(json.go_in());
         assert!(json.go_next());
         assert!(json.go_prev());
@@ -400,7 +434,7 @@ mod tests {
 
     #[test]
     fn go_prev_array() {
-        let mut json = Json::from(&json!(["a", "b"]));
+        let mut json = Json::from(json!(["a", "b"]));
         assert!(json.go_in());
         assert!(json.go_next());
         assert!(json.go_prev());
