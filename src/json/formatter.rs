@@ -1,73 +1,44 @@
-use std::{borrow::Borrow, collections::HashMap, rc::Rc};
+use std::{borrow::Borrow, rc::Rc};
 
 use serde_json::{Map, Value};
 
 use crate::{
-    json::{Pointer, Token},
+    json::{Pointer, PointerData, PointerMap, PointerValue, Token},
     style::{StyleClass, StyledLine, StyledString, INDENT},
 };
 
-pub struct PointerData {
-    pub node_type: NodeType,
-    pub children: usize,
-    pub bounds: (usize, usize),
-}
-
-/// A map from tokens to first and last lines matching the formatted value.
-pub type PointerMap = HashMap<Vec<Token>, PointerData>;
-
-#[derive(Default, Clone, Copy)]
-pub enum NodeType {
-    #[default]
-    Object,
-    Array,
-    Value,
-}
-
-impl From<&Value> for NodeType {
-    fn from(value: &Value) -> Self {
-        match value {
-            Value::Object(_) => NodeType::Object,
-            Value::Array(_) => NodeType::Array,
-            _ => NodeType::Value,
-        }
-    }
-}
-
-pub struct Formatter {
+pub struct Formatter<'lines, 'pm> {
     depth: usize,
     value: Rc<Value>,
-    node_type: Option<NodeType>,
     tokens: Vec<Token>,
-    lines: Vec<StyledLine>,
-    pointer_map: PointerMap,
+    lines: &'lines mut Vec<StyledLine>,
+    pointer_map: &'pm mut PointerMap,
 }
 
-impl Formatter {
-    pub fn format(value: Rc<Value>) -> (Vec<StyledLine>, PointerMap) {
+impl<'lines, 'pm> Formatter<'lines, 'pm> {
+    pub fn format(
+        value: Rc<Value>,
+        lines: &'lines mut Vec<StyledLine>,
+        pointer_map: &'pm mut PointerMap,
+    ) {
         let value_clone = Rc::clone(&value);
         let mut formatter = Self {
             depth: 0,
             value,
-            node_type: None,
             tokens: vec![],
-            lines: vec![],
-            pointer_map: HashMap::new(),
+            lines,
+            pointer_map,
         };
 
-        let lines = formatter.format_value(value_clone.borrow());
-
-        (lines, formatter.pointer_map)
+        formatter.format_value(value_clone.borrow());
     }
 
-    fn format_value(&mut self, value: &Value) -> Vec<StyledLine> {
+    fn format_value(&mut self, value: &Value) {
         match value {
             Value::Object(obj) => self.format_object(obj),
             Value::Array(arr) => self.format_array(arr),
             _ => self.format_primitive(value),
         };
-
-        self.lines.clone()
     }
 
     fn update_map(&mut self) {
@@ -86,12 +57,12 @@ impl Formatter {
 
                 let children: usize = value
                     .as_object()
-                    .and_then(|o| Some(o.len()))
-                    .or_else(|| value.as_array().and_then(|a| Some(a.len())))
+                    .map(|o| o.len())
+                    .or_else(|| value.as_array().map(|a| a.len()))
                     .unwrap_or(0);
 
                 PointerData {
-                    node_type: NodeType::from(value),
+                    value: PointerValue::from(value),
                     children,
                     bounds: (self.lines.len() - 1, self.lines.len() - 1),
                 }
@@ -269,12 +240,15 @@ fn format_fold_count(n: usize) -> StyledString {
     StyledString(format!(" ({}) ", n), StyleClass::FoldCount)
 }
 
+pub fn curly_fold(key: Option<&str>, n: usize) -> Vec<StyledString> {
+    let fold = format_fold_count(n);
+    match key {
+        Some(key) => [format_key(key), surround_punct(fold, "{", "}")].concat(),
+        None => surround_punct(fold, "{", "}"),
+    }
+}
+
 pub fn bracket_fold(n: usize) -> Vec<StyledString> {
     let fold = format_fold_count(n);
     surround_punct(fold, "[", "]")
-}
-
-pub fn curly_fold(n: usize) -> Vec<StyledString> {
-    let fold = format_fold_count(n);
-    surround_punct(fold, "{", "}")
 }

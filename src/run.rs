@@ -55,25 +55,25 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             ClearSearch => todo!(),
 
             OutputSelectionPretty => {
-                if let Some((key, value)) = json.get_selection() {
+                if let Some((key, value)) = json.token_value_pair() {
                     output = Some(selection_pretty(key, value)?);
                     break;
                 }
             }
             OutputValuePretty => {
-                if let Some(value) = json.get_current_value() {
+                if let Some(value) = json.value() {
                     output = Some(value.to_string());
                     break;
                 }
             }
             OutputSelection => {
-                if let Some((key, value)) = json.get_selection() {
+                if let Some((key, value)) = json.token_value_pair() {
                     output = Some(selection(key, value)?);
                     break;
                 }
             }
             OutputValue => {
-                if let Some(value) = json.get_current_value() {
+                if let Some(value) = json.value() {
                     output = Some(value.to_string());
                     break;
                 }
@@ -81,22 +81,22 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
 
             // TODO: Visual feedback
             CopySelectionPretty => {
-                if let Some((key, value)) = json.get_selection() {
+                if let Some((key, value)) = json.token_value_pair() {
                     clipboard.set_text(selection_pretty(key, value)?)?;
                 }
             }
             CopyValuePretty => {
-                if let Some(s) = json.get_current_value().map(to_string_pretty) {
+                if let Some(s) = json.value().map(to_string_pretty) {
                     clipboard.set_text(s?)?;
                 }
             }
             CopySelection => {
-                if let Some((key, value)) = json.get_selection() {
+                if let Some((key, value)) = json.token_value_pair() {
                     clipboard.set_text(selection(key, value)?)?;
                 }
             }
             CopyValue => {
-                if let Some(s) = json.get_current_value().map(|v| v.to_string()) {
+                if let Some(s) = json.value().map(|v| v.to_string()) {
                     clipboard.set_text(s)?;
                 }
             }

@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
-use crossterm::style::Attribute;
-use crossterm::style::{Attributes, Color, ContentStyle, StyledContent};
+use crossterm::style::{Attribute, Attributes, Color, ContentStyle, StyledContent};
 
 use crate::json::Token;
 

@@ -1,4 +1,9 @@
-use std::{collections::HashSet, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
+
+use serde_json::Value;
 
 pub use formatter::*;
 pub use pointer::Pointer;
@@ -10,22 +15,55 @@ mod formatter;
 mod pointer;
 mod token;
 
-/// A parsed JSON object with a pointer to the current active node.
+#[derive(Default, Clone, Copy)]
+pub enum PointerValue {
+    #[default]
+    Object,
+    Array,
+    Primitive,
+}
+
+impl From<&Value> for PointerValue {
+    fn from(value: &Value) -> Self {
+        match value {
+            Value::Object(_) => PointerValue::Object,
+            Value::Array(_) => PointerValue::Array,
+            _ => PointerValue::Primitive,
+        }
+    }
+}
+
+pub struct PointerData {
+    pub value: PointerValue,
+    pub children: usize,
+    pub bounds: (usize, usize),
+}
+
+/// A map from tokens to first and last lines matching the formatted value.
+pub type PointerMap = HashMap<Vec<Token>, PointerData>;
+
+/// The main application state. It holds the current pointer (user selection),
+/// the active folds, the formatted lines (containing style information) as well as a map
+/// containing extra data about each pointer.
 pub struct Json {
     pointer: Pointer,
-    pub value: Rc<serde_json::Value>,
+    pub value: Rc<Value>,
     pub folds: HashSet<Vec<Token>>,
     pub formatted: Vec<StyledLine>,
     pub pointer_map: PointerMap,
 }
 
-impl From<Rc<serde_json::Value>> for Json {
-    fn from(value: Rc<serde_json::Value>) -> Self {
-        let (formatted, pointer_map) = Formatter::format(Rc::clone(&value));
+impl From<Rc<Value>> for Json {
+    fn from(value: Rc<Value>) -> Self {
+        let mut formatted = vec![];
+        let mut pointer_map = PointerMap::new();
+
+        Formatter::format(Rc::clone(&value), &mut formatted, &mut pointer_map);
+
         Self {
             value,
-            pointer: Pointer::new(),
             folds: HashSet::new(),
+            pointer: Pointer::new(),
             formatted,
             pointer_map,
         }
@@ -33,32 +71,47 @@ impl From<Rc<serde_json::Value>> for Json {
 }
 
 impl Json {
+    /// Returns the current pointer as a list of Tokens
     pub fn tokens(&self) -> Vec<Token> {
         self.pointer.tokens()
     }
 
-    pub fn current_token(&self) -> Option<&Token> {
+    /// Returns a reference to the current Token
+    pub fn token(&self) -> Option<&Token> {
         self.pointer.current_token()
     }
 
-    pub fn path(&self) -> String {
+    /// Returns the current pointer as a period-separated string of tokens
+    pub fn period_path(&self) -> String {
         self.pointer.to_string()
+    }
+
+    /// Gets the JSON value at the current pointer location.
+    pub fn value(&self) -> Option<&Value> {
+        self.value.pointer(&self.pointer.to_json_pointer())
+    }
+
+    pub fn bounds(&self) -> (usize, usize) {
+        match self.pointer_map.get(&self.tokens()) {
+            Some(&PointerData { bounds, .. }) => bounds,
+            None => (0, self.formatted.len()),
+        }
     }
 
     pub fn toggle_fold(&mut self) -> bool {
         if self
-            .get_current_value()
+            .value()
             .is_some_and(|v| !v.is_object() && !v.is_array())
         {
-            false
-        } else {
-            let tokens = self.tokens();
+            return false;
+        }
 
-            if self.folds.contains(&tokens) {
-                self.unfold(&tokens)
-            } else {
-                self.fold(tokens)
-            }
+        let tokens = self.tokens();
+
+        if self.folds.contains(&tokens) {
+            self.unfold(&tokens)
+        } else {
+            self.fold(tokens)
         }
     }
 
@@ -131,51 +184,37 @@ impl Json {
         }
     }
 
-    /// Gets the JSON value at the given pointer location.
-    fn get_value_at(&self, pointer_str: &str) -> Option<&serde_json::Value> {
-        self.value.pointer(pointer_str)
-    }
-
-    /// Gets the JSON value at the current pointer location.
-    pub fn get_current_value(&self) -> Option<&serde_json::Value> {
-        self.get_value_at(&self.pointer.to_json_pointer())
-    }
-
     /// Gets the JSON value at the parent pointer location.
-    fn get_parent_value(&self) -> Option<&serde_json::Value> {
+    fn parent_value(&self) -> Option<&Value> {
         let tokens = self.pointer.parent_tokens();
 
-        self.get_value_at(&Pointer::json_pointer(&tokens))
-    }
-
-    /// Get the key of the value at the current pointer location.
-    fn get_key(&self) -> Option<String> {
-        self.current_token().map(|s| s.to_string())
+        let json_pointer = &Pointer::json_pointer(&tokens);
+        self.value.pointer(json_pointer)
     }
 
     /// Get selection (key and value)
-    pub fn get_selection(&self) -> Option<(Option<String>, &serde_json::Value)> {
-        let value = self.get_current_value()?;
+    pub fn token_value_pair(&self) -> Option<(Option<String>, &Value)> {
+        let value = self.value()?;
 
         Some(if self.value_is_array_element() {
             (None, value)
         } else {
-            self.get_key().map_or((None, value), |k| (Some(k), value))
+            self.token().map_or((None, value), |k| (k.as_key(), value))
         })
     }
 
     fn value_is_array_element(&self) -> bool {
-        self.get_parent_value().is_some_and(|v| v.is_array())
+        self.parent_value().is_some_and(|v| v.is_array())
     }
 
     /// Gets the first child of an object or array
     fn first_child(&self) -> Option<Token> {
-        if let Some(v) = self.get_current_value() {
+        if let Some(v) = self.value() {
             match v {
-                serde_json::Value::Object(o) => {
+                Value::Object(o) => {
                     return o.keys().next().map(|key| Token::Key(key.to_owned()));
                 }
-                serde_json::Value::Array(a) => {
+                Value::Array(a) => {
                     if !a.is_empty() {
                         return Some(Token::Index(0));
                     }
@@ -190,12 +229,12 @@ impl Json {
     /// Gets the last child of an object or array
     #[allow(dead_code)]
     fn last_child(&self) -> Option<Token> {
-        if let Some(v) = self.get_current_value() {
+        if let Some(v) = self.value() {
             match v {
-                serde_json::Value::Object(o) => {
+                Value::Object(o) => {
                     return o.keys().last().map(|key| Token::Key(key.to_owned()));
                 }
-                serde_json::Value::Array(a) => {
+                Value::Array(a) => {
                     if !a.is_empty() {
                         return Some(Token::Index(a.len() - 1));
                     }
@@ -213,10 +252,10 @@ impl Json {
             return None;
         }
 
-        if let Some(v) = self.get_parent_value() {
+        if let Some(v) = self.parent_value() {
             match v {
-                serde_json::Value::Object(o) => {
-                    let key = self.current_token()?.as_key()?;
+                Value::Object(o) => {
+                    let key = self.token()?.as_key()?;
                     let key_idx = o
                         .keys()
                         .position(|k| *k == key)
@@ -226,8 +265,8 @@ impl Json {
                         return o.keys().nth(key_idx - 1).map(|k| Token::Key(k.to_string()));
                     }
                 }
-                serde_json::Value::Array(_) => {
-                    let idx = self.current_token()?.as_index()?;
+                Value::Array(_) => {
+                    let idx = self.token()?.as_index()?;
 
                     if idx > 0 {
                         return Some(Token::Index(idx - 1));
@@ -245,10 +284,10 @@ impl Json {
             return None;
         }
 
-        if let Some(v) = self.get_parent_value() {
+        if let Some(v) = self.parent_value() {
             match v {
-                serde_json::Value::Object(o) => {
-                    let key = self.current_token()?.as_key()?;
+                Value::Object(o) => {
+                    let key = self.token()?.as_key()?;
                     let key_idx = o
                         .keys()
                         .position(|k| *k == key)
@@ -258,8 +297,8 @@ impl Json {
                         return o.keys().nth(key_idx + 1).map(|k| Token::Key(k.to_string()));
                     }
                 }
-                serde_json::Value::Array(a) => {
-                    let idx = self.current_token()?.as_index()?;
+                Value::Array(a) => {
+                    let idx = self.token()?.as_index()?;
 
                     if idx < a.len() - 1 {
                         return Some(Token::Index(idx + 1));
@@ -277,14 +316,16 @@ mod tests {
     use std::collections::HashSet;
     use std::rc::Rc;
 
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     use super::*;
 
-    impl From<serde_json::Value> for Json {
-        fn from(value: serde_json::Value) -> Self {
+    impl From<Value> for Json {
+        fn from(value: Value) -> Self {
             let rc_value = Rc::new(value);
-            let (formatted, pointer_map) = Formatter::format(Rc::clone(&rc_value));
+            let mut formatted = Vec::new();
+            let mut pointer_map = HashMap::new();
+            Formatter::format(Rc::clone(&rc_value), &mut formatted, &mut pointer_map);
             Self {
                 value: rc_value,
                 pointer: Pointer::new(),
@@ -320,37 +361,37 @@ mod tests {
     fn move_around() {
         let value = json!({ "a": [0, { "/": "foo", "~": [true, null] }] });
         let mut json = Json::from(value.clone());
-        assert_eq!(json.get_current_value(), value.pointer(""));
+        assert_eq!(json.value(), value.pointer(""));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a"));
+        assert_eq!(json.value(), value.pointer("/a"));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a/0"));
+        assert_eq!(json.value(), value.pointer("/a/0"));
         assert!(json.go_next());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1"));
+        assert_eq!(json.value(), value.pointer("/a/1"));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~1"));
+        assert_eq!(json.value(), value.pointer("/a/1/~1"));
         assert!(json.go_next());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~0"));
+        assert_eq!(json.value(), value.pointer("/a/1/~0"));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~0/0"));
+        assert_eq!(json.value(), value.pointer("/a/1/~0/0"));
         assert!(json.go_next());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~0/1"));
+        assert_eq!(json.value(), value.pointer("/a/1/~0/1"));
         assert!(json.go_out());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~0"));
+        assert_eq!(json.value(), value.pointer("/a/1/~0"));
         assert!(json.go_out());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1"));
+        assert_eq!(json.value(), value.pointer("/a/1"));
         assert!(json.go_out());
-        assert_eq!(json.get_current_value(), value.pointer("/a"));
+        assert_eq!(json.value(), value.pointer("/a"));
         assert!(json.go_out());
-        assert_eq!(json.get_current_value(), value.pointer(""));
+        assert_eq!(json.value(), value.pointer(""));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a"));
+        assert_eq!(json.value(), value.pointer("/a"));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1"));
+        assert_eq!(json.value(), value.pointer("/a/1"));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~0"));
+        assert_eq!(json.value(), value.pointer("/a/1/~0"));
         assert!(json.go_in());
-        assert_eq!(json.get_current_value(), value.pointer("/a/1/~0/1"));
+        assert_eq!(json.value(), value.pointer("/a/1/~0/1"));
     }
 
     #[test]
@@ -389,7 +430,7 @@ mod tests {
         assert!(json.go_in());
         assert!(json.go_out());
         assert_eq!(json.tokens(), vec!["a"]);
-        assert_eq!(json.current_token(), None)
+        assert_eq!(json.token(), None)
     }
 
     #[test]
@@ -398,7 +439,7 @@ mod tests {
         assert!(json.go_in());
         assert!(json.go_out());
         assert_eq!(json.tokens(), vec!["0"]);
-        assert_eq!(json.current_token(), None)
+        assert_eq!(json.token(), None)
     }
 
     #[test]
@@ -407,7 +448,7 @@ mod tests {
         assert!(json.go_in());
         assert!(json.go_next());
         assert_eq!(json.tokens(), vec!["b"]);
-        assert_eq!(json.current_token(), Some(&Token::Key("b".to_string())));
+        assert_eq!(json.token(), Some(&Token::Key("b".to_string())));
         assert!(!json.go_next());
     }
 
@@ -417,7 +458,7 @@ mod tests {
         assert!(json.go_in());
         assert!(json.go_next());
         assert_eq!(json.tokens(), vec!["1"]);
-        assert_eq!(json.current_token(), Some(&Token::Index(1)));
+        assert_eq!(json.token(), Some(&Token::Index(1)));
         assert!(!json.go_next());
     }
 
@@ -428,7 +469,7 @@ mod tests {
         assert!(json.go_next());
         assert!(json.go_prev());
         assert_eq!(json.tokens(), vec!["a"]);
-        assert_eq!(json.current_token(), Some(&Token::Key("a".to_string())));
+        assert_eq!(json.token(), Some(&Token::Key("a".to_string())));
         assert!(!json.go_prev());
     }
 
@@ -439,7 +480,7 @@ mod tests {
         assert!(json.go_next());
         assert!(json.go_prev());
         assert_eq!(json.tokens(), vec!["0"]);
-        assert_eq!(json.current_token(), Some(&Token::Index(0)));
+        assert_eq!(json.token(), Some(&Token::Index(0)));
         assert!(!json.go_prev());
     }
 }

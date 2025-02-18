@@ -6,7 +6,7 @@ use crossterm::{
 };
 
 use crate::{
-    json::{bracket_fold, curly_fold, Json, NodeType, PointerData},
+    json::{bracket_fold, curly_fold, Json, PointerData, PointerValue},
     screen::Screen,
     style::{StyledLine, STYLE_POINTER, STYLE_SELECTION, STYLE_TITLE},
 };
@@ -34,7 +34,7 @@ impl UI {
     pub fn render(&mut self, filepath: &Option<PathBuf>, json: &Json) -> anyhow::Result<()> {
         self.screen.clear()?;
 
-        self.render_header(filepath, &json.path())?;
+        self.render_header(filepath, &json.period_path())?;
         self.render_body(
             json,
             (0, self.header_height),
@@ -86,10 +86,7 @@ impl UI {
         offset: (usize, usize),
         size: (usize, usize),
     ) -> anyhow::Result<()> {
-        let selection_bounds = match json.pointer_map.get(&json.tokens()) {
-            Some(&PointerData { bounds, .. }) => bounds,
-            None => (0, json.formatted.len()),
-        };
+        let selection_bounds = json.bounds();
 
         // TODO: Skip to visible line
         let mut line_idx = 0;
@@ -116,15 +113,18 @@ impl UI {
             cursor_y += 1;
 
             if json.folds.contains(pointer) {
-                let &PointerData {
-                    node_type,
+                let PointerData {
+                    value,
                     bounds,
                     children,
                 } = json.pointer_map.get(pointer).unwrap();
-                let fold_string = match node_type {
-                    NodeType::Object => curly_fold(children),
-                    NodeType::Array => bracket_fold(children),
-                    NodeType::Value => vec![],
+
+                let key = pointer.last().and_then(|t| t.as_key());
+
+                let fold_string = match value {
+                    PointerValue::Object => curly_fold(key.as_deref(), *children),
+                    PointerValue::Array => bracket_fold(*children),
+                    PointerValue::Primitive => panic!("should not fold primitives"),
                 };
 
                 fold_string
