@@ -20,6 +20,7 @@ mod events;
 mod json;
 mod run;
 mod screen;
+mod search;
 mod style;
 mod ui;
 

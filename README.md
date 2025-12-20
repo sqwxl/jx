@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/jx?logo=rust)](https://crates.io/crates/jx)
 
 ```sh
-jx example.json                              # open a JSON file directly
+jx examples/reference.json                   # open a JSON file directly
 curl example.com/some-json-endpoint | jx     # ...or pipe it in
 ```
 
@@ -52,7 +52,7 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 - [x] Copy selection or value to clipboard.
 - [x] Output selection or value to console.
 - [x] Pretty-printing.
-- [ ] Searching.
+- [x] Searching.
 - [ ] Filtering.
 - [ ] Sorting.
 - [x] Scrolling.

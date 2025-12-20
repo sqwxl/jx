@@ -2,20 +2,24 @@ use std::path::PathBuf;
 
 use crossterm::{
     cursor, queue,
-    style::{Print, PrintStyledContent, ResetColor},
+    style::{ContentStyle, Print, PrintStyledContent, ResetColor},
 };
 
 use crate::{
     json::{bracket_fold, curly_fold, Json, PointerData, PointerValue},
     screen::Screen,
-    style::{StyledLine, STYLE_POINTER, STYLE_SELECTION_BAR, STYLE_TITLE},
+    search::SearchResults,
+    style::{
+        StyledLine, STYLE_POINTER, STYLE_SEARCH_MATCH, STYLE_SEARCH_MATCH_CURRENT,
+        STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS, STYLE_SELECTION_BAR, STYLE_TITLE,
+    },
 };
 
 /// Builds the UI and sends it off to be rendered.
 pub struct UI {
     screen: Screen,
     header_height: usize,
-    footer_height: usize,
+    pub footer_height: usize,
     scroll_offset: usize,
     scroll_x: usize,
     line_wrap: bool,
@@ -87,19 +91,57 @@ impl UI {
         }
     }
 
+    /// Scrolls horizontally to show a match, scrolling as far left as possible while keeping match visible
+    pub fn ensure_x_visible(&mut self, col: usize, width: usize) {
+        if self.line_wrap {
+            return;
+        }
+        // Account for selection bar taking 1 column
+        let usable_width = self.screen.size.0.saturating_sub(1);
+        let match_end = col + width;
+        let visible_end = self.scroll_x + usable_width;
+
+        if match_end > visible_end {
+            // Match is off-screen to the right - scroll right minimally to show it
+            if width >= usable_width {
+                self.scroll_x = col;
+            } else {
+                self.scroll_x = match_end.saturating_sub(usable_width);
+            }
+        } else if col < self.scroll_x {
+            // Match is off-screen to the left - scroll left to show it
+            // Go as far left as possible while keeping match visible
+            if width >= usable_width {
+                self.scroll_x = col;
+            } else {
+                self.scroll_x = match_end.saturating_sub(usable_width);
+            }
+        }
+        // Otherwise match is already visible, don't scroll
+    }
+
     pub fn resize(&mut self, size: (usize, usize)) -> bool {
         self.screen.resize(size)
     }
 
-    pub fn render(&mut self, filepath: &Option<PathBuf>, json: &Json) -> anyhow::Result<()> {
+    pub fn render(
+        &mut self,
+        filepath: &Option<PathBuf>,
+        json: &Json,
+        search_input: Option<&str>,
+        search_results: Option<&SearchResults>,
+    ) -> anyhow::Result<()> {
         self.screen.clear()?;
 
         self.render_header(filepath, &json.period_path())?;
+        let body_height = self.screen.size.1 - self.header_height - self.footer_height;
         self.render_body(
             json,
             (0, self.header_height),
-            (self.screen.size.0, self.screen.size.1 - self.header_height),
+            (self.screen.size.0, body_height),
+            search_results,
         )?;
+        self.render_footer(search_input, search_results)?;
 
         self.screen.print()
     }
@@ -145,6 +187,7 @@ impl UI {
         json: &Json,
         offset: (usize, usize),
         size: (usize, usize),
+        search_results: Option<&SearchResults>,
     ) -> anyhow::Result<()> {
         let selection_bounds = json.bounds();
         let mut line_idx = 0;
@@ -243,12 +286,25 @@ impl UI {
                     continuation_col = *indent;
                 }
 
-                for el in elements.iter() {
+                for (elem_idx, el) in elements.iter().enumerate() {
                     let text = &el.0;
+
+                    // Get search match info (style and which chars to highlight)
+                    let (search_style, match_positions) = search_results
+                        .map(|sr| {
+                            if let Some(m) = sr.get_current(*line_number, elem_idx) {
+                                (Some(STYLE_SEARCH_MATCH_CURRENT), Some(&m.char_positions))
+                            } else if let Some(m) = sr.get_match(*line_number, elem_idx) {
+                                (Some(STYLE_SEARCH_MATCH), Some(&m.char_positions))
+                            } else {
+                                (None, None)
+                            }
+                        })
+                        .unwrap_or((None, None));
 
                     if self.line_wrap {
                         // Print with manual wrapping (no horizontal scroll in wrap mode)
-                        for ch in text.chars() {
+                        for (char_idx, ch) in text.chars().enumerate() {
                             if col >= max_col {
                                 cursor_y += 1;
                                 col = continuation_col;
@@ -257,17 +313,33 @@ impl UI {
                                     cursor::MoveTo(col as u16, cursor_y as u16)
                                 )?;
                             }
-                            queue!(self.screen.out, Print(el.1.apply(ch)))?;
+                            let should_highlight = match_positions
+                                .map(|pos| pos.contains(&char_idx))
+                                .unwrap_or(false);
+                            let styled = if should_highlight {
+                                apply_with_bg(el.1.apply(ch), search_style.unwrap())
+                            } else {
+                                el.1.apply(ch)
+                            };
+                            queue!(self.screen.out, Print(styled))?;
                             col += 1;
                         }
                     } else {
                         // Print char by char to handle UTF-8 correctly
-                        for ch in text.chars() {
+                        for (char_idx, ch) in text.chars().enumerate() {
                             if col >= scroll_end {
                                 break;
                             }
                             if col >= self.scroll_x {
-                                queue!(self.screen.out, Print(el.1.apply(ch)))?;
+                                let should_highlight = match_positions
+                                    .map(|pos| pos.contains(&char_idx))
+                                    .unwrap_or(false);
+                                let styled = if should_highlight {
+                                    apply_with_bg(el.1.apply(ch), search_style.unwrap())
+                                } else {
+                                    el.1.apply(ch)
+                                };
+                                queue!(self.screen.out, Print(styled))?;
                             }
                             col += 1;
                         }
@@ -282,8 +354,58 @@ impl UI {
         Ok(())
     }
 
-    fn render_footer(&mut self) {
-        // self.screen.draw_line(&self.footer);
-        // TODO: Show keyboard shortcuts
+    fn render_footer(
+        &mut self,
+        search_input: Option<&str>,
+        search_results: Option<&SearchResults>,
+    ) -> anyhow::Result<()> {
+        if self.footer_height == 0 {
+            return Ok(());
+        }
+
+        let footer_y = self.screen.size.1 - self.footer_height;
+        queue!(
+            self.screen.out,
+            cursor::MoveTo(0, footer_y as u16),
+            ResetColor
+        )?;
+
+        // Render search prompt or status
+        if let Some(input) = search_input {
+            // Active search mode: show /input
+            queue!(
+                self.screen.out,
+                PrintStyledContent(STYLE_SEARCH_PROMPT.apply("/")),
+                Print(input)
+            )?;
+        }
+
+        // Render match count on the right
+        if let Some(results) = search_results {
+            let status = results.status_text();
+            let status_col = self.screen.size.0.saturating_sub(status.len() + 1);
+            queue!(
+                self.screen.out,
+                cursor::MoveTo(status_col as u16, footer_y as u16),
+                PrintStyledContent(STYLE_SEARCH_STATUS.apply(&status))
+            )?;
+        }
+
+        Ok(())
     }
+}
+
+/// Helper to apply a background color while preserving the foreground
+fn apply_with_bg<D: std::fmt::Display + Clone>(
+    styled: crossterm::style::StyledContent<D>,
+    bg_style: ContentStyle,
+) -> crossterm::style::StyledContent<D> {
+    let mut new_style = *styled.style();
+    if let Some(bg) = bg_style.background_color {
+        new_style.background_color = Some(bg);
+    }
+    if let Some(fg) = bg_style.foreground_color {
+        new_style.foreground_color = Some(fg);
+    }
+    crossterm::style::StyledContent::new(new_style, styled.content().clone())
 }

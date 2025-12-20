@@ -86,6 +86,11 @@ impl Json {
         self.pointer.to_string()
     }
 
+    /// Sets the current selection to the given path
+    pub fn set_selection(&mut self, tokens: Vec<Token>) {
+        self.pointer.set_path(tokens);
+    }
+
     /// Gets the JSON value at the current pointer location.
     pub fn value(&self) -> Option<&Value> {
         self.value.pointer(&self.pointer.to_json_pointer())

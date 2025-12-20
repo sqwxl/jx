@@ -5,6 +5,7 @@ use serde_json::{to_string_pretty, Value};
 
 use crate::events::{read_event, Action::*, Direction::*};
 use crate::json::Json;
+use crate::search::{perform_search, SearchResults};
 use crate::ui::UI;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
@@ -15,17 +16,36 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
 
     let mut output: Option<String> = None;
 
-    ui.render(filepath, &json)?;
+    // Search state
+    let mut search_input: Option<String> = None;
+    let mut search_results: Option<SearchResults> = None;
+    let mut last_search: Option<SearchResults> = None;
+
+    ui.render(
+        filepath,
+        &json,
+        search_input.as_deref(),
+        search_results.as_ref(),
+    )?;
 
     loop {
         let mut needs_redraw = false;
+        let search_mode = search_input.is_some();
 
-        match read_event()? {
+        match read_event(search_mode)? {
             Resize(w, h) => {
                 needs_redraw = ui.resize((w, h));
             }
 
-            Quit => break,
+            Quit => {
+                // If search results are showing, clear them first
+                if search_results.is_some() {
+                    last_search = search_results.take();
+                    needs_redraw = true;
+                } else {
+                    break;
+                }
+            }
 
             Move(direction) => {
                 needs_redraw = match direction {
@@ -73,12 +93,134 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             Sort => todo!(),
             SortReverse => todo!(),
 
-            Search => todo!(),
+            Search => {
+                search_input = Some(String::new());
+                ui.footer_height = 1;
+                needs_redraw = true;
+            }
             SearchBackward => todo!(),
-            RepeatSearch => todo!(),
-            RepeatSearchBackward => todo!(),
+
+            SearchInput(c) => {
+                if let Some(ref mut input) = search_input {
+                    input.push(c);
+                    search_results = Some(perform_search(&json.formatted, input));
+                    // Auto-scroll to first match
+                    if let Some(ref results) = search_results {
+                        let match_len = results.query.chars().count();
+                        if let Some(m) = results.matches.first() {
+                            ensure_match_visible(
+                                &mut ui,
+                                &mut json,
+                                m.line_number,
+                                m.element_index,
+                                m.char_offset,
+                                match_len,
+                            );
+                        }
+                    }
+                    needs_redraw = true;
+                }
+            }
+            SearchBackspace => {
+                if let Some(ref mut input) = search_input {
+                    input.pop();
+                    if input.is_empty() {
+                        search_results = None;
+                    } else {
+                        search_results = Some(perform_search(&json.formatted, input));
+                        if let Some(ref results) = search_results {
+                            let match_len = results.query.chars().count();
+                            if let Some(m) = results.matches.first() {
+                                ensure_match_visible(
+                                    &mut ui,
+                                    &mut json,
+                                    m.line_number,
+                                    m.element_index,
+                                    m.char_offset,
+                                    match_len,
+                                );
+                            }
+                        }
+                    }
+                    needs_redraw = true;
+                }
+            }
+            SearchConfirm => {
+                if let Some(ref mut results) = search_results {
+                    if !results.matches.is_empty() {
+                        results.current_index = Some(0);
+                        let match_len = results.query.chars().count();
+                        if let Some(m) = results.current() {
+                            ensure_match_visible(
+                                &mut ui,
+                                &mut json,
+                                m.line_number,
+                                m.element_index,
+                                m.char_offset,
+                                match_len,
+                            );
+                        }
+                    }
+                    last_search = Some(results.clone());
+                }
+                search_input = None;
+                ui.footer_height = 0;
+                needs_redraw = true;
+            }
+            SearchCancel => {
+                // Restore previous search if any
+                search_results = last_search.clone();
+                search_input = None;
+                ui.footer_height = 0;
+                needs_redraw = true;
+            }
+
+            RepeatSearch => {
+                // Revive search if cleared
+                if search_results.is_none() {
+                    search_results = last_search.clone();
+                }
+                if let Some(ref mut results) = search_results {
+                    let match_len = results.query.chars().count();
+                    if let Some(m) = results.next() {
+                        ensure_match_visible(
+                            &mut ui,
+                            &mut json,
+                            m.line_number,
+                            m.element_index,
+                            m.char_offset,
+                            match_len,
+                        );
+                        needs_redraw = true;
+                    }
+                }
+            }
+            RepeatSearchBackward => {
+                if search_results.is_none() {
+                    search_results = last_search.clone();
+                }
+                if let Some(ref mut results) = search_results {
+                    let match_len = results.query.chars().count();
+                    if let Some(m) = results.prev() {
+                        ensure_match_visible(
+                            &mut ui,
+                            &mut json,
+                            m.line_number,
+                            m.element_index,
+                            m.char_offset,
+                            match_len,
+                        );
+                        needs_redraw = true;
+                    }
+                }
+            }
             Filter => todo!(),
-            ClearSearch => todo!(),
+            ClearSearch => {
+                if search_results.is_some() {
+                    last_search = search_results.take();
+                    needs_redraw = true;
+                }
+            }
 
             OutputSelectionPretty => {
                 if let Some((key, value)) = json.token_value_pair() {
@@ -137,11 +279,60 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
         }
 
         if needs_redraw {
-            ui.render(filepath, &json)?;
+            ui.render(
+                filepath,
+                &json,
+                search_input.as_deref(),
+                search_results.as_ref(),
+            )?;
         }
     }
 
     Ok(output)
+}
+
+/// Unfolds ancestors, sets selection, and scrolls to make a match visible
+fn ensure_match_visible(
+    ui: &mut UI,
+    json: &mut Json,
+    line_number: usize,
+    element_index: usize,
+    char_offset: usize,
+    match_len: usize,
+) {
+    // Extract data from line before mutable operations
+    let (pointer, col) = match json.formatted.get(line_number) {
+        Some(line) => {
+            let mut col = line.indent;
+            for (idx, elem) in line.elements.iter().enumerate() {
+                if idx == element_index {
+                    break;
+                }
+                col += elem.0.chars().count();
+            }
+            // Add char_offset to get to the actual match position within the element
+            col += char_offset;
+            (line.pointer.clone(), col)
+        }
+        None => return,
+    };
+
+    // Unfold any ancestors of this line
+    for i in 0..pointer.len() {
+        let ancestor = pointer[..=i].to_vec();
+        json.folds.remove(&ancestor);
+    }
+
+    // Set the selection to the matched node's path
+    json.set_selection(pointer);
+
+    // Scroll horizontally to make the match visible
+    ui.ensure_x_visible(col, match_len);
+
+    // Scroll vertically to make visible
+    if let Some(visible_line) = json.line_to_visible(line_number) {
+        ui.ensure_visible((visible_line, visible_line));
+    }
 }
 
 fn selection(key: Option<String>, value: &Value) -> anyhow::Result<String> {

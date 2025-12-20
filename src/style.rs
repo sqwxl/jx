@@ -146,3 +146,31 @@ pub const STYLE_TITLE: ContentStyle = ContentStyle {
 };
 
 pub const STYLE_POINTER: ContentStyle = STYLE_TITLE;
+
+pub const STYLE_SEARCH_MATCH: ContentStyle = ContentStyle {
+    foreground_color: None,
+    background_color: Some(Color::DarkYellow),
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const STYLE_SEARCH_MATCH_CURRENT: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::Black),
+    background_color: Some(Color::Yellow),
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const STYLE_SEARCH_PROMPT: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::Yellow),
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const STYLE_SEARCH_STATUS: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::Grey),
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};

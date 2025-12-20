@@ -99,6 +99,16 @@ impl Pointer {
         self
     }
 
+    /// Sets the pointer to a specific path
+    pub fn set_path(&mut self, tokens: Vec<Token>) {
+        self.tokens = tokens;
+        self.cursor = if self.tokens.is_empty() {
+            None
+        } else {
+            Some(self.tokens.len() - 1)
+        };
+    }
+
     pub fn to_json_pointer(&self) -> String {
         Self::json_pointer(&self.tokens())
     }
