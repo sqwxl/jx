@@ -161,25 +161,18 @@ impl Json {
 
     pub fn go_prev(&mut self) -> bool {
         if let Some(s) = self.prev_sibling() {
-            let tokens = self.pointer.reset_cursor(&s).tokens();
-
-            self.unfold(&tokens);
-
+            self.pointer.reset_cursor(&s);
             true
         } else {
-            // self.go_out()
             false
         }
     }
 
     pub fn go_next(&mut self) -> bool {
         if let Some(s) = self.next_sibling() {
-            let tokens = self.pointer.reset_cursor(&s).tokens();
-
-            self.unfold(&tokens);
+            self.pointer.reset_cursor(&s);
             true
         } else {
-            // self.go_out()
             false
         }
     }
