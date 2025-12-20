@@ -203,11 +203,30 @@ impl UI {
                 }
                 line_idx = bounds.1 + 1;
             } else {
+                // Find continuation column (after ": " for object entries)
+                let mut continuation_col = *indent;
+                let mut found_colon = false;
+                for el in elements.iter() {
+                    if found_colon {
+                        break;
+                    }
+                    continuation_col += el.0.len();
+                    if el.0 == ": " {
+                        found_colon = true;
+                    }
+                }
+                if !found_colon {
+                    continuation_col = *indent;
+                }
+
+                let is_selected =
+                    selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1;
+
                 for el in elements.iter() {
                     if !self.line_wrap && col >= max_col {
                         break;
                     }
-                    if selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1 {
+                    if is_selected {
                         queue!(
                             self.screen.out,
                             SetAttributes(STYLE_SELECTION.attributes),
@@ -223,8 +242,25 @@ impl UI {
                         }
                         break;
                     }
-                    queue!(self.screen.out, Print(el))?;
-                    col += text.len();
+
+                    if self.line_wrap {
+                        // Print with manual wrapping
+                        for ch in text.chars() {
+                            if col >= max_col {
+                                cursor_y += 1;
+                                col = continuation_col;
+                                queue!(
+                                    self.screen.out,
+                                    cursor::MoveTo(col as u16, cursor_y as u16)
+                                )?;
+                            }
+                            queue!(self.screen.out, Print(el.1.apply(ch)))?;
+                            col += 1;
+                        }
+                    } else {
+                        queue!(self.screen.out, Print(el))?;
+                        col += text.len();
+                    }
                 }
                 line_idx += 1;
             }

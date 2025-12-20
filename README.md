@@ -60,4 +60,4 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 - [ ] Multiple files.
 - [ ] Broken files.
 - [ ] Line numbers.
-- [ ] Line wrapping.
+- [x] Line wrapping.
