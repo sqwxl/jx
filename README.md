@@ -9,7 +9,16 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 
 ## Installation
 
-`cargo install jx`
+```sh
+# Shell (Unix)
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/sqwxl/jx/releases/latest/download/jx-installer.sh | sh
+
+# PowerShell (Windows)
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/sqwxl/jx/releases/latest/download/jx-installer.ps1 | iex"
+
+# Cargo
+cargo install jx
+```
 
 ## Usage
 
