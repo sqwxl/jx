@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-push hook: run clippy and tests
+
+echo "Running clippy..."
+cargo clippy -- -D warnings
+if [ $? -ne 0 ]; then
+    echo "Clippy found warnings. Fix them before pushing."
+    exit 1
+fi
+
+echo "Running tests..."
+cargo test
+if [ $? -ne 0 ]; then
+    echo "Tests failed. Fix them before pushing."
+    exit 1
+fi
+
+echo "All checks passed!"

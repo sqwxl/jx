@@ -20,3 +20,8 @@ box_drawing = "0.1.2"
 clap = { version = "4.5.27", features = ["derive"] }
 crossterm = "0.28.1"
 serde_json = { version = "1.0.137", features = ["preserve_order"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

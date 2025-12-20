@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pre-commit hook: check formatting
+
+echo "Checking formatting..."
+cargo fmt --check
+if [ $? -ne 0 ]; then
+    echo "Formatting check failed. Run 'cargo fmt' to fix."
+    exit 1
+fi
