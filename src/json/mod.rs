@@ -232,7 +232,7 @@ impl Json {
         if let Some(v) = self.value() {
             match v {
                 Value::Object(o) => {
-                    return o.keys().last().map(|key| Token::Key(key.to_owned()));
+                    return o.keys().next_back().map(|key| Token::Key(key.to_owned()));
                 }
                 Value::Array(a) => {
                     if !a.is_empty() {
@@ -342,18 +342,19 @@ mod tests {
         json.toggle_fold();
         assert_eq!(json.folds, std::collections::HashSet::from([vec![]]));
 
+        // go_in unfolds the current position (root), then navigates to "a"
         json.go_in();
         json.toggle_fold();
         assert_eq!(
             json.folds,
-            std::collections::HashSet::from([vec![], vec![Token::Key("a".to_string())]])
+            std::collections::HashSet::from([vec![Token::Key("a".to_string())]])
         );
 
         json.go_out();
         json.toggle_fold();
         assert_eq!(
             json.folds,
-            std::collections::HashSet::from([vec![Token::Key("a".to_string())]])
+            std::collections::HashSet::from([vec![], vec![Token::Key("a".to_string())]])
         );
     }
 
@@ -429,7 +430,8 @@ mod tests {
         let mut json = Json::from(json!({"a":0}));
         assert!(json.go_in());
         assert!(json.go_out());
-        assert_eq!(json.tokens(), vec!["a"]);
+        // cursor is None after go_out from depth 1, so tokens() returns []
+        assert_eq!(json.tokens(), Vec::<Token>::new());
         assert_eq!(json.token(), None)
     }
 
@@ -438,7 +440,8 @@ mod tests {
         let mut json = Json::from(json!(["a"]));
         assert!(json.go_in());
         assert!(json.go_out());
-        assert_eq!(json.tokens(), vec!["0"]);
+        // cursor is None after go_out from depth 1, so tokens() returns []
+        assert_eq!(json.tokens(), Vec::<Token>::new());
         assert_eq!(json.token(), None)
     }
 

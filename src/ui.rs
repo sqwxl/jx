@@ -16,6 +16,7 @@ pub struct UI {
     screen: Screen,
     header_height: usize,
     footer_height: usize,
+    scroll_offset: usize,
 }
 
 impl UI {
@@ -24,7 +25,35 @@ impl UI {
             screen: Screen::new()?,
             header_height: 1,
             footer_height: 0,
+            scroll_offset: 0,
         })
+    }
+
+    pub fn body_height(&self) -> usize {
+        self.screen
+            .size
+            .1
+            .saturating_sub(self.header_height + self.footer_height)
+    }
+
+    pub fn scroll_by(&mut self, delta: isize, max_lines: usize) -> bool {
+        let old = self.scroll_offset;
+        let max_offset = max_lines.saturating_sub(1);
+        self.scroll_offset = if delta < 0 {
+            self.scroll_offset.saturating_sub(delta.unsigned_abs())
+        } else {
+            (self.scroll_offset + delta as usize).min(max_offset)
+        };
+        self.scroll_offset != old
+    }
+
+    pub fn ensure_visible(&mut self, bounds: (usize, usize)) {
+        let body_height = self.body_height();
+        if bounds.0 < self.scroll_offset {
+            self.scroll_offset = bounds.0;
+        } else if bounds.1 >= self.scroll_offset + body_height {
+            self.scroll_offset = bounds.1.saturating_sub(body_height - 1);
+        }
     }
 
     pub fn resize(&mut self, size: (usize, usize)) -> bool {
@@ -87,10 +116,8 @@ impl UI {
         size: (usize, usize),
     ) -> anyhow::Result<()> {
         let selection_bounds = json.bounds();
-
-        // TODO: Skip to visible line
         let mut line_idx = 0;
-
+        let mut visible_line = 0;
         let mut cursor_y = offset.1;
 
         while let Some(StyledLine {
@@ -100,52 +127,63 @@ impl UI {
             elements,
         }) = json.formatted.get(line_idx)
         {
-            if cursor_y >= size.1 {
+            let is_folded = json.folds.contains(pointer);
+            let fold_data = is_folded.then(|| json.pointer_map.get(pointer).unwrap());
+
+            // Skip lines before scroll_offset
+            if visible_line < self.scroll_offset {
+                visible_line += 1;
+                line_idx = if let Some(data) = fold_data {
+                    data.bounds.1 + 1
+                } else {
+                    line_idx + 1
+                };
+                continue;
+            }
+
+            // Stop if we've filled the screen
+            if cursor_y >= offset.1 + size.1 {
                 break;
             }
 
             queue!(
                 self.screen.out,
-                cursor::MoveTo((*indent + offset.0) as u16, (cursor_y) as u16,),
+                cursor::MoveTo((*indent + offset.0) as u16, cursor_y as u16),
                 ResetColor
             )?;
 
-            cursor_y += 1;
-
-            if json.folds.contains(pointer) {
-                let PointerData {
-                    value,
-                    bounds,
-                    children,
-                } = json.pointer_map.get(pointer).unwrap();
-
+            if let Some(PointerData {
+                value,
+                bounds,
+                children,
+            }) = fold_data
+            {
                 let key = pointer.last().and_then(|t| t.as_key());
-
                 let fold_string = match value {
                     PointerValue::Object => curly_fold(key.as_deref(), *children),
                     PointerValue::Array => bracket_fold(*children),
                     PointerValue::Primitive => panic!("should not fold primitives"),
                 };
-
-                fold_string
-                    .iter()
-                    .for_each(|el| queue!(self.screen.out, Print(el)).expect("should print"));
-                line_idx = bounds.1 + 1;
-                continue;
-            }
-
-            for el in elements.iter() {
-                if selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1 {
-                    queue!(
-                        self.screen.out,
-                        SetAttributes(STYLE_SELECTION.attributes),
-                        SetUnderlineColor(STYLE_SELECTION.underline_color.unwrap())
-                    )?;
+                for el in &fold_string {
+                    queue!(self.screen.out, Print(el))?;
                 }
-                queue!(self.screen.out, Print(el))?;
+                line_idx = bounds.1 + 1;
+            } else {
+                for el in elements.iter() {
+                    if selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1 {
+                        queue!(
+                            self.screen.out,
+                            SetAttributes(STYLE_SELECTION.attributes),
+                            SetUnderlineColor(STYLE_SELECTION.underline_color.unwrap())
+                        )?;
+                    }
+                    queue!(self.screen.out, Print(el))?;
+                }
+                line_idx += 1;
             }
 
-            line_idx += 1;
+            visible_line += 1;
+            cursor_y += 1;
         }
         Ok(())
     }
