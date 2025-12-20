@@ -164,14 +164,16 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                     last_search = Some(results.clone());
                 }
                 search_input = None;
-                ui.footer_height = 0;
+                // Keep footer visible if there are results
+                ui.footer_height = if search_results.is_some() { 1 } else { 0 };
                 needs_redraw = true;
             }
             SearchCancel => {
                 // Restore previous search if any
                 search_results = last_search.clone();
                 search_input = None;
-                ui.footer_height = 0;
+                // Keep footer visible if there are results
+                ui.footer_height = if search_results.is_some() { 1 } else { 0 };
                 needs_redraw = true;
             }
 
@@ -179,6 +181,9 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 // Revive search if cleared
                 if search_results.is_none() {
                     search_results = last_search.clone();
+                    if search_results.is_some() {
+                        ui.footer_height = 1;
+                    }
                 }
                 if let Some(ref mut results) = search_results {
                     let match_len = results.query.chars().count();
@@ -198,6 +203,9 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             RepeatSearchBackward => {
                 if search_results.is_none() {
                     search_results = last_search.clone();
+                    if search_results.is_some() {
+                        ui.footer_height = 1;
+                    }
                 }
                 if let Some(ref mut results) = search_results {
                     let match_len = results.query.chars().count();
@@ -218,6 +226,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             ClearSearch => {
                 if search_results.is_some() {
                     last_search = search_results.take();
+                    ui.footer_height = 0;
                     needs_redraw = true;
                 }
             }
