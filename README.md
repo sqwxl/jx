@@ -24,6 +24,8 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 | <kbd>b</kbd> <kbd>f</kbd>            | Scroll full page up/down.          |
 | <kbd>g</kbd>                         | Go to first line.                  |
 | <kbd>G</kbd>                         | Go to last line.                   |
+| <kbd><</kbd>                         | Scroll left.                       |
+| <kbd>></kbd>                         | Scroll right.                      |
 | <kbd>Space</kbd>                     | Toggle a fold.                     |
 | <kbd>s</kbd>                         | Sort selected.                     |
 | <kbd>S</kbd>                         | Sort selected reversed.            |
@@ -54,7 +56,7 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 - [ ] Filtering.
 - [ ] Sorting.
 - [x] Scrolling.
-- [ ] Horizontal scrolling.
+- [x] Horizontal scrolling.
 - [x] Folding.
 - [x] Syntax highlighting.
 - [ ] Multiple files.

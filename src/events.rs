@@ -19,6 +19,8 @@ pub enum Action {
     ScrollFull(Direction),
     ScrollTop,
     ScrollBottom,
+    ScrollLeft,
+    ScrollRight,
     Fold,
     Sort,
     SortReverse,
@@ -68,6 +70,8 @@ pub fn read_event() -> Result<Action> {
             (KeyCode::Char('f'), _) => ScrollFull(Down),
             (KeyCode::Char('g'), _) => ScrollTop,
             (KeyCode::Char('G'), _) => ScrollBottom,
+            (KeyCode::Char('<'), _) => ScrollLeft,
+            (KeyCode::Char('>'), _) => ScrollRight,
 
             (KeyCode::Char(' '), _) => Fold,
 

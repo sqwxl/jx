@@ -59,6 +59,12 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             ScrollBottom => {
                 needs_redraw = ui.scroll_to_bottom(json.formatted.len());
             }
+            ScrollLeft => {
+                needs_redraw = ui.scroll_x_by(-4);
+            }
+            ScrollRight => {
+                needs_redraw = ui.scroll_x_by(4);
+            }
 
             Fold => {
                 needs_redraw = json.toggle_fold();

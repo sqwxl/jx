@@ -17,6 +17,7 @@ pub struct UI {
     header_height: usize,
     footer_height: usize,
     scroll_offset: usize,
+    scroll_x: usize,
     line_wrap: bool,
 }
 
@@ -27,12 +28,24 @@ impl UI {
             header_height: 1,
             footer_height: 0,
             scroll_offset: 0,
+            scroll_x: 0,
             line_wrap: false,
         })
     }
 
     pub fn toggle_line_wrap(&mut self) {
         self.line_wrap = !self.line_wrap;
+        self.scroll_x = 0; // Reset horizontal scroll when toggling wrap
+    }
+
+    pub fn scroll_x_by(&mut self, delta: isize) -> bool {
+        let old = self.scroll_x;
+        self.scroll_x = if delta < 0 {
+            self.scroll_x.saturating_sub(delta.unsigned_abs())
+        } else {
+            self.scroll_x + delta as usize
+        };
+        self.scroll_x != old
     }
 
     pub fn body_height(&self) -> usize {
@@ -177,13 +190,16 @@ impl UI {
                 )?;
             }
 
+            // Calculate visible start position accounting for horizontal scroll
+            let visible_start = indent.saturating_sub(self.scroll_x);
             queue!(
                 self.screen.out,
-                cursor::MoveTo((*indent + offset.0) as u16, cursor_y as u16),
+                cursor::MoveTo((visible_start + offset.0) as u16, cursor_y as u16),
                 ResetColor
             )?;
 
-            let mut col = *indent;
+            let mut col = *indent; // Absolute column position
+            let scroll_end = self.scroll_x + max_col; // Right edge of visible area
 
             if let Some(PointerData {
                 value,
@@ -198,20 +214,16 @@ impl UI {
                     PointerValue::Primitive => panic!("should not fold primitives"),
                 };
                 for el in &fold_string {
-                    if !self.line_wrap && col >= max_col {
-                        break;
-                    }
                     let text = &el.0;
-                    if !self.line_wrap && col + text.len() > max_col {
-                        let remaining = max_col.saturating_sub(col);
-                        if remaining > 0 {
-                            let truncated = &text[..remaining];
-                            queue!(self.screen.out, Print(el.1.apply(truncated)))?;
+                    for ch in text.chars() {
+                        if col >= scroll_end {
+                            break;
                         }
-                        break;
+                        if col >= self.scroll_x {
+                            queue!(self.screen.out, Print(el.1.apply(ch)))?;
+                        }
+                        col += 1;
                     }
-                    queue!(self.screen.out, Print(el))?;
-                    col += text.len();
                 }
                 line_idx = bounds.1 + 1;
             } else {
@@ -222,7 +234,7 @@ impl UI {
                     if found_colon {
                         break;
                     }
-                    continuation_col += el.0.len();
+                    continuation_col += el.0.chars().count();
                     if el.0 == ": " {
                         found_colon = true;
                     }
@@ -232,21 +244,10 @@ impl UI {
                 }
 
                 for el in elements.iter() {
-                    if !self.line_wrap && col >= max_col {
-                        break;
-                    }
                     let text = &el.0;
-                    if !self.line_wrap && col + text.len() > max_col {
-                        let remaining = max_col.saturating_sub(col);
-                        if remaining > 0 {
-                            let truncated = &text[..remaining];
-                            queue!(self.screen.out, Print(el.1.apply(truncated)))?;
-                        }
-                        break;
-                    }
 
                     if self.line_wrap {
-                        // Print with manual wrapping
+                        // Print with manual wrapping (no horizontal scroll in wrap mode)
                         for ch in text.chars() {
                             if col >= max_col {
                                 cursor_y += 1;
@@ -260,8 +261,16 @@ impl UI {
                             col += 1;
                         }
                     } else {
-                        queue!(self.screen.out, Print(el))?;
-                        col += text.len();
+                        // Print char by char to handle UTF-8 correctly
+                        for ch in text.chars() {
+                            if col >= scroll_end {
+                                break;
+                            }
+                            if col >= self.scroll_x {
+                                queue!(self.screen.out, Print(el.1.apply(ch)))?;
+                            }
+                            col += 1;
+                        }
                     }
                 }
                 line_idx += 1;
