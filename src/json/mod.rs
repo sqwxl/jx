@@ -98,6 +98,39 @@ impl Json {
         }
     }
 
+    /// Returns the number of visible lines, accounting for folds
+    pub fn visible_line_count(&self) -> usize {
+        self.line_to_visible(self.formatted.len()).unwrap_or(0)
+    }
+
+    /// Converts absolute line index to visible line index (accounting for folds)
+    pub fn line_to_visible(&self, target_line: usize) -> Option<usize> {
+        let mut visible = 0;
+        let mut line_idx = 0;
+
+        while line_idx < target_line {
+            let line = self.formatted.get(line_idx)?;
+            visible += 1;
+            if self.folds.contains(&line.pointer) {
+                if let Some(data) = self.pointer_map.get(&line.pointer) {
+                    line_idx = data.bounds.1 + 1;
+                    continue;
+                }
+            }
+            line_idx += 1;
+        }
+
+        Some(visible)
+    }
+
+    /// Returns bounds as visible line indices (accounting for folds)
+    pub fn visible_bounds(&self) -> (usize, usize) {
+        let (start, end) = self.bounds();
+        let visible_start = self.line_to_visible(start).unwrap_or(0);
+        let visible_end = self.line_to_visible(end + 1).unwrap_or(visible_start + 1);
+        (visible_start, visible_end.saturating_sub(1))
+    }
+
     pub fn toggle_fold(&mut self) -> bool {
         if self
             .value()

@@ -35,29 +35,29 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                     Right => json.go_in(),
                 };
                 if needs_redraw {
-                    ui.ensure_visible(json.bounds());
+                    ui.ensure_visible(json.visible_bounds());
                 }
             }
 
             ScrollLine(dir) => {
                 let delta = if matches!(dir, Up) { -1 } else { 1 };
-                needs_redraw = ui.scroll_by(delta, json.formatted.len());
+                needs_redraw = ui.scroll_by(delta, json.visible_line_count());
             }
             ScrollHalf(dir) => {
                 let half = (ui.body_height() / 2).max(1) as isize;
                 let delta = if matches!(dir, Up) { -half } else { half };
-                needs_redraw = ui.scroll_by(delta, json.formatted.len());
+                needs_redraw = ui.scroll_by(delta, json.visible_line_count());
             }
             ScrollFull(dir) => {
                 let full = ui.body_height().max(1) as isize;
                 let delta = if matches!(dir, Up) { -full } else { full };
-                needs_redraw = ui.scroll_by(delta, json.formatted.len());
+                needs_redraw = ui.scroll_by(delta, json.visible_line_count());
             }
             ScrollTop => {
                 needs_redraw = ui.scroll_to_top();
             }
             ScrollBottom => {
-                needs_redraw = ui.scroll_to_bottom(json.formatted.len());
+                needs_redraw = ui.scroll_to_bottom(json.visible_line_count());
             }
             ScrollLeft => {
                 needs_redraw = ui.scroll_x_by(-4);
