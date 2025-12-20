@@ -53,6 +53,12 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 let delta = if matches!(dir, Up) { -full } else { full };
                 needs_redraw = ui.scroll_by(delta, json.formatted.len());
             }
+            ScrollTop => {
+                needs_redraw = ui.scroll_to_top();
+            }
+            ScrollBottom => {
+                needs_redraw = ui.scroll_to_bottom(json.formatted.len());
+            }
 
             Fold => {
                 needs_redraw = json.toggle_fold();

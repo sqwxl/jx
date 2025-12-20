@@ -53,6 +53,18 @@ impl UI {
         self.scroll_offset != old
     }
 
+    pub fn scroll_to_top(&mut self) -> bool {
+        let old = self.scroll_offset;
+        self.scroll_offset = 0;
+        self.scroll_offset != old
+    }
+
+    pub fn scroll_to_bottom(&mut self, max_lines: usize) -> bool {
+        let old = self.scroll_offset;
+        self.scroll_offset = max_lines.saturating_sub(self.body_height());
+        self.scroll_offset != old
+    }
+
     pub fn ensure_visible(&mut self, bounds: (usize, usize)) {
         let body_height = self.body_height();
         if bounds.0 < self.scroll_offset {
