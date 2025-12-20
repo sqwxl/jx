@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4](https://github.com/sqwxl/jx/compare/v0.5.3...v0.5.4) - 2025-12-20
+
+### Added
+
+- add help popup with keybinding reference
+- add search functionality with / key
+
+### Fixed
+
+- keep match count visible while search results are highlighted
+
 ## [0.5.3](https://github.com/sqwxl/jx/compare/v0.5.2...v0.5.3) - 2025-12-20
 
 ### Added
