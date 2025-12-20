@@ -1,6 +1,6 @@
 # jx
 
-[![Crates.io](https://img.shields.io/crates/v/jx?logo=rust)](https://crates.io/crates/jx)
+[![crates.io](https://img.shields.io/crates/v/jx?logo=rust)](https://crates.io/crates/jx)
 
 ```sh
 jx examples/reference.json                   # open a JSON file directly
@@ -9,7 +9,25 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 
 ## Installation
 
-`cargo install jx`
+You can download a binary directly from the [releases](https://github.com/sqwxl/jx/releases) page, or run one of the following.
+
+### Linux / macOS
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/sqwxl/jx/releases/latest/download/jx-installer.sh | sh
+```
+
+### Windows
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://github.com/sqwxl/jx/releases/latest/download/jx-installer.ps1 | iex"
+```
+
+### Cargo
+
+```sh
+cargo install jx
+```
 
 ## Usage
 
