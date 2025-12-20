@@ -213,7 +213,10 @@ fn double_quote(styled_string: StyledString) -> Vec<StyledString> {
 }
 
 fn format_key(key: &str) -> Vec<StyledString> {
-    [double_quote(format_string(key)), vec![format_punct(": ")]].concat()
+    let json = Value::String(key.to_owned()).to_string();
+    let escaped = &json[1..json.len() - 1];
+    let key_string = StyledString(escaped.to_owned(), StyleClass::Key);
+    [double_quote(key_string), vec![format_punct(": ")]].concat()
 }
 
 fn format_string(string: &str) -> StyledString {

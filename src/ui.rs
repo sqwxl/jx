@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use crossterm::{
     cursor, queue,
-    style::{Print, PrintStyledContent, ResetColor, SetAttributes, SetUnderlineColor},
+    style::{Print, PrintStyledContent, ResetColor},
 };
 
 use crate::{
     json::{bracket_fold, curly_fold, Json, PointerData, PointerValue},
     screen::Screen,
-    style::{StyledLine, STYLE_POINTER, STYLE_SELECTION, STYLE_TITLE},
+    style::{StyledLine, STYLE_POINTER, STYLE_SELECTION_BAR, STYLE_TITLE},
 };
 
 /// Builds the UI and sends it off to be rendered.
@@ -165,6 +165,18 @@ impl UI {
                 break;
             }
 
+            let is_selected =
+                selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1;
+
+            // Draw selection indicator bar
+            if is_selected {
+                queue!(
+                    self.screen.out,
+                    cursor::MoveTo(offset.0 as u16, cursor_y as u16),
+                    PrintStyledContent(STYLE_SELECTION_BAR.apply("▌"))
+                )?;
+            }
+
             queue!(
                 self.screen.out,
                 cursor::MoveTo((*indent + offset.0) as u16, cursor_y as u16),
@@ -219,19 +231,9 @@ impl UI {
                     continuation_col = *indent;
                 }
 
-                let is_selected =
-                    selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1;
-
                 for el in elements.iter() {
                     if !self.line_wrap && col >= max_col {
                         break;
-                    }
-                    if is_selected {
-                        queue!(
-                            self.screen.out,
-                            SetAttributes(STYLE_SELECTION.attributes),
-                            SetUnderlineColor(STYLE_SELECTION.underline_color.unwrap())
-                        )?;
                     }
                     let text = &el.0;
                     if !self.line_wrap && col + text.len() > max_col {

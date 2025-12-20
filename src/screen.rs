@@ -1,6 +1,6 @@
 use std::io::{self, BufWriter, Stdout, Write};
 
-use crossterm::{cursor, execute, style::ResetColor, terminal};
+use crossterm::{cursor, execute, queue, style::ResetColor, terminal};
 
 pub struct Screen {
     pub size: (usize, usize),
@@ -28,7 +28,7 @@ impl Screen {
     }
 
     pub fn clear(&mut self) -> anyhow::Result<()> {
-        execute!(
+        queue!(
             self.out,
             cursor::MoveTo(0, 0),
             terminal::Clear(crossterm::terminal::ClearType::All),

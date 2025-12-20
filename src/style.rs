@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crossterm::style::{Attribute, Attributes, Color, ContentStyle, StyledContent};
+use crossterm::style::{Attributes, Color, ContentStyle, StyledContent};
 
 use crate::json::Token;
 
@@ -44,6 +44,7 @@ pub enum StyleClass {
     #[default]
     Whitespace,
     Punct,
+    Key,
     String,
     Number,
     Bool,
@@ -56,6 +57,7 @@ impl StyleClass {
         match self {
             StyleClass::Whitespace => STYLE_WHITESPACE.apply(text),
             StyleClass::Punct => STYLE_PUNCT.apply(text),
+            StyleClass::Key => STYLE_KEY.apply(text),
             StyleClass::String => STYLE_STRING.apply(text),
             StyleClass::Number => STYLE_NUMBER.apply(text),
             StyleClass::Bool => STYLE_BOOL.apply(text),
@@ -129,11 +131,11 @@ const STYLE_FOLD_COUNT: ContentStyle = ContentStyle {
     attributes: Attributes::none(),
     underline_color: None,
 };
-pub const STYLE_SELECTION: ContentStyle = ContentStyle {
-    foreground_color: None,
+pub const STYLE_SELECTION_BAR: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::DarkYellow),
     background_color: None,
-    attributes: Attributes::with(Attributes::none(), Attribute::Underlined),
-    underline_color: Some(Color::White),
+    attributes: Attributes::none(),
+    underline_color: None,
 };
 
 pub const STYLE_TITLE: ContentStyle = ContentStyle {
