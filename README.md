@@ -45,13 +45,10 @@ cargo install jx
 | <kbd><</kbd>                         | Scroll left.                       |
 | <kbd>></kbd>                         | Scroll right.                      |
 | <kbd>Space</kbd>                     | Toggle a fold.                     |
-| <kbd>s</kbd>                         | Sort selected.                     |
-| <kbd>S</kbd>                         | Sort selected reversed.            |
 | <kbd>/</kbd>                         | Search.                            |
 | <kbd>n</kbd>                         | Repeat previous search.            |
 | <kbd>N</kbd>                         | Repeat previous search in reverse. |
-| <kbd>&</kbd>                         | Filter.                            |
-| <kbd>Esc</kbd>                       | Clear search/filter.               |
+| <kbd>Esc</kbd>                       | Clear search.                      |
 | <kbd>c</kbd> <kbd>Ctrl+Shift+C</kbd> | Copy the selection (pretty).       |
 | <kbd>C</kbd>                         | Copy the value (pretty).           |
 | <kbd>r</kbd>                         | Copy the selection (raw).          |
@@ -60,7 +57,6 @@ cargo install jx
 | <kbd>Shift+Enter</kbd>               | Output the value (pretty).         |
 | <kbd>o</kbd>                         | Output the selection (raw).        |
 | <kbd>O</kbd>                         | Output the value (raw).            |
-| <kbd>#</kbd>                         | Toggle line numbers.               |
 | <kbd>w</kbd>                         | Toggle line wrapping.              |
 
 ## Features

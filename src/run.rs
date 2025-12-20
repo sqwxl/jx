@@ -94,8 +94,12 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 needs_redraw = json.toggle_fold();
             }
 
-            Sort => todo!(),
-            SortReverse => todo!(),
+            Sort => {
+                eprintln!("sort: not yet implemented");
+            }
+            SortReverse => {
+                eprintln!("sort reverse: not yet implemented");
+            }
 
             Search => {
                 search_input = Some(String::new());
@@ -225,7 +229,9 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                     }
                 }
             }
-            Filter => todo!(),
+            Filter => {
+                eprintln!("filter: not yet implemented");
+            }
             ClearSearch => {
                 if search_results.is_some() {
                     last_search = search_results.take();
@@ -281,7 +287,9 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 }
             }
 
-            ToggleLineNumbers => todo!(),
+            ToggleLineNumbers => {
+                eprintln!("line numbers: not yet implemented");
+            }
             ToggleLineWrapping => {
                 ui.toggle_line_wrap();
                 needs_redraw = true;
