@@ -1,0 +1,3 @@
+[workspace]
+# Let cargo-dist handle GitHub releases (triggered by tag)
+git_release_enable = false
