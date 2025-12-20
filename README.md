@@ -1,6 +1,6 @@
 # jx
 
-![Crates.io](https://img.shields.io/crates/v/jx?logo=rust)
+[![Crates.io](https://img.shields.io/crates/v/jx?logo=rust)](https://crates.io/crates/jx)
 
 ```sh
 jx example.json                              # open a JSON file directly
@@ -53,7 +53,8 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 - [ ] Searching.
 - [ ] Filtering.
 - [ ] Sorting.
-- [ ] Scrolling.
+- [x] Scrolling.
+- [ ] Horizontal scrolling.
 - [x] Folding.
 - [x] Syntax highlighting.
 - [ ] Multiple files.
