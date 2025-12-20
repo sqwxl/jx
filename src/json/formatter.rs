@@ -217,7 +217,9 @@ fn format_key(key: &str) -> Vec<StyledString> {
 }
 
 fn format_string(string: &str) -> StyledString {
-    StyledString(string.to_owned(), StyleClass::String)
+    let json = Value::String(string.to_owned()).to_string();
+    let escaped = &json[1..json.len() - 1];
+    StyledString(escaped.to_owned(), StyleClass::String)
 }
 
 fn format_number(number: &str) -> StyledString {

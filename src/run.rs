@@ -116,7 +116,10 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             }
 
             ToggleLineNumbers => todo!(),
-            ToggleLineWrapping => todo!(),
+            ToggleLineWrapping => {
+                ui.toggle_line_wrap();
+                needs_redraw = true;
+            }
 
             Ignore => {}
         }

@@ -33,6 +33,10 @@ impl StyledLine {
     pub fn len(&self) -> usize {
         self.elements.len()
     }
+
+    pub fn display_width(&self) -> usize {
+        self.indent + self.elements.iter().map(|e| e.0.len()).sum::<usize>()
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]

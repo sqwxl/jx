@@ -1,0 +1,54 @@
+{
+	"strings": {
+		"simple": "hello world",
+		"empty": "",
+		"with_escapes": "line1\nline2\ttabbed\r\nwindows",
+		"quotes_and_slashes": "She said \"hello\" and used a \\ backslash",
+		"unicode": "日本語 • émojis: 🎉🚀💻 • symbols: ∑∏∫",
+		"extremely_long": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula. Donec lobortis risus a elit. Etiam tempor. Ut ullamcorper, ligula eu tempor congue, eros est euismod turpis, id tincidunt sapien risus a quam. Maecenas fermentum consequat mi. Donec fermentum. Pellentesque malesuada nulla a mi. Duis sapien sem, aliquet sed, vulputate eget, feugiat quis, risus. Praesent quam augue, elementum vel, pretium vitae, rhoncus in, nisl. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae."
+	},
+	"numbers": {
+		"zero": 0,
+		"positive_integer": 42,
+		"negative_integer": -17,
+		"float": 3.14159265358979,
+		"negative_float": -2.718281828,
+		"scientific_positive": 6.022e23,
+		"scientific_negative": 1.6e-19,
+		"large": 9007199254740991,
+		"small": 0.000000001
+	},
+	"booleans": {
+		"true_value": true,
+		"false_value": false
+	},
+	"null_value": null,
+	"arrays": {
+		"empty": [],
+		"numbers": [1, 2, 3, 4, 5],
+		"strings": ["apple", "banana", "cherry"],
+		"mixed": [1, "two", true, null, 3.14],
+		"nested": [[1, 2], [3, 4], [[5, 6], [7, 8]]],
+		"objects": [{ "id": 1, "name": "first" }, { "id": 2, "name": "second" }]
+	},
+	"objects": {
+		"empty": {},
+		"simple": { "key": "value" },
+		"nested": {
+			"level1": {
+				"level2": {
+					"level3": {
+						"deep": "value"
+					}
+				}
+			}
+		}
+	},
+	"special_keys": {
+		"": "empty key",
+		"with spaces": "spaced key",
+		"with/slash": "slashed",
+		"with~tilde": "tilded",
+		"123": "numeric string key"
+	}
+}

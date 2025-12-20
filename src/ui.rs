@@ -17,6 +17,7 @@ pub struct UI {
     header_height: usize,
     footer_height: usize,
     scroll_offset: usize,
+    line_wrap: bool,
 }
 
 impl UI {
@@ -26,7 +27,12 @@ impl UI {
             header_height: 1,
             footer_height: 0,
             scroll_offset: 0,
+            line_wrap: false,
         })
+    }
+
+    pub fn toggle_line_wrap(&mut self) {
+        self.line_wrap = !self.line_wrap;
     }
 
     pub fn body_height(&self) -> usize {
@@ -119,6 +125,7 @@ impl UI {
         let mut line_idx = 0;
         let mut visible_line = 0;
         let mut cursor_y = offset.1;
+        let max_col = size.0;
 
         while let Some(StyledLine {
             line_number,
@@ -152,6 +159,8 @@ impl UI {
                 ResetColor
             )?;
 
+            let mut col = *indent;
+
             if let Some(PointerData {
                 value,
                 bounds,
@@ -165,11 +174,27 @@ impl UI {
                     PointerValue::Primitive => panic!("should not fold primitives"),
                 };
                 for el in &fold_string {
+                    if !self.line_wrap && col >= max_col {
+                        break;
+                    }
+                    let text = &el.0;
+                    if !self.line_wrap && col + text.len() > max_col {
+                        let remaining = max_col.saturating_sub(col);
+                        if remaining > 0 {
+                            let truncated = &text[..remaining];
+                            queue!(self.screen.out, Print(el.1.apply(truncated)))?;
+                        }
+                        break;
+                    }
                     queue!(self.screen.out, Print(el))?;
+                    col += text.len();
                 }
                 line_idx = bounds.1 + 1;
             } else {
                 for el in elements.iter() {
+                    if !self.line_wrap && col >= max_col {
+                        break;
+                    }
                     if selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1 {
                         queue!(
                             self.screen.out,
@@ -177,7 +202,17 @@ impl UI {
                             SetUnderlineColor(STYLE_SELECTION.underline_color.unwrap())
                         )?;
                     }
+                    let text = &el.0;
+                    if !self.line_wrap && col + text.len() > max_col {
+                        let remaining = max_col.saturating_sub(col);
+                        if remaining > 0 {
+                            let truncated = &text[..remaining];
+                            queue!(self.screen.out, Print(el.1.apply(truncated)))?;
+                        }
+                        break;
+                    }
                     queue!(self.screen.out, Print(el))?;
+                    col += text.len();
                 }
                 line_idx += 1;
             }
