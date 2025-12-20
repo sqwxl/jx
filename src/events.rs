@@ -25,7 +25,8 @@ pub enum Action {
     Sort,
     SortReverse,
     Search,
-    SearchBackward,
+    ShowHelp,
+    DismissHelp,
     RepeatSearch,
     RepeatSearchBackward,
     Filter,
@@ -49,9 +50,14 @@ pub enum Action {
 
 use Action::*;
 
-pub fn read_event(search_mode: bool) -> Result<Action> {
+pub fn read_event(search_mode: bool, help_mode: bool) -> Result<Action> {
     let action = match event::read()? {
         Event::Resize(w, h) => Resize(w as usize, h as usize),
+
+        Event::Key(KeyEvent {
+            kind: KeyEventKind::Press,
+            ..
+        }) if help_mode => DismissHelp,
 
         Event::Key(KeyEvent {
             code,
@@ -93,7 +99,7 @@ pub fn read_event(search_mode: bool) -> Result<Action> {
                     (KeyCode::Char('S'), _) => SortReverse,
 
                     (KeyCode::Char('/'), _) => Search,
-                    (KeyCode::Char('?'), _) => SearchBackward,
+                    (KeyCode::Char('?'), _) => ShowHelp,
                     (KeyCode::Char('n'), _) => RepeatSearch,
                     (KeyCode::Char('N'), _) => RepeatSearchBackward,
                     (KeyCode::Char('&'), _) => Filter,

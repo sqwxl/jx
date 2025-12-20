@@ -21,18 +21,22 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
     let mut search_results: Option<SearchResults> = None;
     let mut last_search: Option<SearchResults> = None;
 
+    // Help state
+    let mut help_visible = false;
+
     ui.render(
         filepath,
         &json,
         search_input.as_deref(),
         search_results.as_ref(),
+        help_visible,
     )?;
 
     loop {
         let mut needs_redraw = false;
         let search_mode = search_input.is_some();
 
-        match read_event(search_mode)? {
+        match read_event(search_mode, help_visible)? {
             Resize(w, h) => {
                 needs_redraw = ui.resize((w, h));
             }
@@ -98,7 +102,6 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 ui.footer_height = 1;
                 needs_redraw = true;
             }
-            SearchBackward => todo!(),
 
             SearchInput(c) => {
                 if let Some(ref mut input) = search_input {
@@ -284,6 +287,15 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 needs_redraw = true;
             }
 
+            ShowHelp => {
+                help_visible = true;
+                needs_redraw = true;
+            }
+            DismissHelp => {
+                help_visible = false;
+                needs_redraw = true;
+            }
+
             Ignore => {}
         }
 
@@ -293,6 +305,7 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 &json,
                 search_input.as_deref(),
                 search_results.as_ref(),
+                help_visible,
             )?;
         }
     }

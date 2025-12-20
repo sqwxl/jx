@@ -17,6 +17,7 @@ use crossterm::{
 use crate::json::Json;
 
 mod events;
+mod help;
 mod json;
 mod run;
 mod screen;

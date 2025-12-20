@@ -6,6 +6,7 @@ use crossterm::{
 };
 
 use crate::{
+    help::render_help,
     json::{bracket_fold, curly_fold, Json, PointerData, PointerValue},
     screen::Screen,
     search::SearchResults,
@@ -130,6 +131,7 @@ impl UI {
         json: &Json,
         search_input: Option<&str>,
         search_results: Option<&SearchResults>,
+        help_visible: bool,
     ) -> anyhow::Result<()> {
         self.screen.clear()?;
 
@@ -142,6 +144,10 @@ impl UI {
             search_results,
         )?;
         self.render_footer(search_input, search_results)?;
+
+        if help_visible {
+            render_help(&mut self.screen.out, self.screen.size)?;
+        }
 
         self.screen.print()
     }

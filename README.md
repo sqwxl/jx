@@ -15,7 +15,7 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 
 | Key                                  | Action                             |
 | ------------------------------------ | ---------------------------------- |
-| <kbd>H</kbd>                         | Show help.                         |
+| <kbd>?</kbd>                         | Show help.                         |
 | <kbd>q</kbd> <kbd>Ctrl+c</kbd>       | Quit.                              |
 | <kbd>j</kbd> <kbd>k</kbd>            | Next/Previous node.                |
 | <kbd>h</kbd> <kbd>l</kbd>            | In/Out node.                       |
@@ -30,7 +30,6 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 | <kbd>s</kbd>                         | Sort selected.                     |
 | <kbd>S</kbd>                         | Sort selected reversed.            |
 | <kbd>/</kbd>                         | Search.                            |
-| <kbd>?</kbd>                         | Search backward.                   |
 | <kbd>n</kbd>                         | Repeat previous search.            |
 | <kbd>N</kbd>                         | Repeat previous search in reverse. |
 | <kbd>&</kbd>                         | Filter.                            |

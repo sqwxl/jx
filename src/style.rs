@@ -174,3 +174,24 @@ pub const STYLE_SEARCH_STATUS: ContentStyle = ContentStyle {
     attributes: Attributes::none(),
     underline_color: None,
 };
+
+pub const STYLE_HELP_BORDER: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::DarkYellow),
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const STYLE_HELP_KEY: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::Yellow),
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const STYLE_HELP_DESC: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::White),
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};
