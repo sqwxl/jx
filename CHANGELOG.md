@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3](https://github.com/sqwxl/jx/compare/v0.5.2...v0.5.3) - 2025-12-20
+
+### Added
+
+- add horizontal scrolling with < and > keys
+- improve selection indicator and fix key styling
+- add g/G keys to scroll to top/bottom
+- add line truncation and fix escape character display
+
+### Fixed
+
+- use visible line coordinates for scrolling with folds
+- don't unfold nodes when navigating up/down
+- align wrapped lines with value content
+
+### Other
+
+- use PAT for release-plz to trigger cargo-dist
+
 ## [0.5.2](https://github.com/sqwxl/jx/compare/v0.5.1...v0.5.2) - 2025-12-20
 
 ### Other
