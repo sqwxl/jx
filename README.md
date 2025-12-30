@@ -11,6 +11,12 @@ curl example.com/some-json-endpoint | jx     # ...or pipe it in
 
 You can download a binary directly from the [releases](https://github.com/sqwxl/jx/releases) page, or run one of the following.
 
+### Homebrew
+
+```sh
+brew install sqwxl/tap/jx
+```
+
 ### Linux / macOS
 
 ```sh
