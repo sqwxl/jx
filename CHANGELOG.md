@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.8](https://github.com/sqwxl/jx/compare/v0.5.7...v0.5.8) - 2025-12-30
+
+### Added
+
+- add homebrew tap
+
 ## [0.5.7](https://github.com/sqwxl/jx/compare/v0.5.6...v0.5.7) - 2025-12-20
 
 ### Fixed
