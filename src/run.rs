@@ -97,6 +97,9 @@ pub fn event_loop(
             Fold => {
                 needs_redraw = json.toggle_fold();
             }
+            FoldAll => {
+                needs_redraw = json.toggle_fold_all();
+            }
 
             Sort => {}
             SortReverse => {}

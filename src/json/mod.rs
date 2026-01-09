@@ -49,6 +49,7 @@ pub struct Json {
     pointer: Pointer,
     pub value: Rc<Value>,
     pub folds: HashSet<Vec<Token>>,
+    all_folded: bool,
     pub formatted: Vec<StyledLine>,
     pub pointer_map: PointerMap,
 }
@@ -63,6 +64,7 @@ impl From<Rc<Value>> for Json {
         Self {
             value,
             folds: HashSet::new(),
+            all_folded: false,
             pointer: Pointer::new(),
             formatted,
             pointer_map,
@@ -153,8 +155,20 @@ impl Json {
         }
     }
 
-    pub fn unfold_all(&mut self) {
-        self.folds.clear();
+    pub fn toggle_fold_all(&mut self) -> bool {
+        if self.all_folded {
+            self.folds.clear();
+            self.all_folded = false;
+        } else {
+            for (tokens, data) in &self.pointer_map {
+                if matches!(data.value, PointerValue::Object | PointerValue::Array) {
+                    self.folds.insert(tokens.clone());
+                }
+            }
+            self.pointer.to_start();
+            self.all_folded = true;
+        }
+        true
     }
 
     fn fold(&mut self, tokens: Vec<Token>) -> bool {
@@ -191,7 +205,7 @@ impl Json {
         if self.pointer.is_at_start() {
             false
         } else {
-            self.pointer.rewind();
+            self.pointer.back();
 
             true
         }

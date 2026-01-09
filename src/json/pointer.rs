@@ -47,12 +47,19 @@ impl Pointer {
     }
 
     /// Rewinds the pointer cursor
-    pub fn rewind(&mut self) -> &mut Self {
+    pub fn back(&mut self) -> &mut Self {
         match self.cursor {
             None => {}
             Some(0) => self.cursor = None,
             Some(c) => self.cursor = Some(c - 1),
         }
+
+        self
+    }
+
+    /// Moves the pointer to the very start
+    pub fn to_start(&mut self) -> &mut Self {
+        self.cursor = None;
 
         self
     }

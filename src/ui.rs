@@ -17,6 +17,9 @@ use crate::{
     },
 };
 
+static SELECTION_SYM: &str = "┃";
+static SELECTION_COL_WIDTH: usize = 1;
+
 /// Builds the UI and sends it off to be rendered.
 pub struct UI {
     screen: Screen,
@@ -206,13 +209,18 @@ impl UI {
         let mut visible_line = 0;
         let mut cursor_y = offset.1;
 
-        let gutter_width = if self.line_numbers {
-            json.formatted.len().to_string().len() + 1
+        let col_numbers_w = if self.line_numbers {
+            json.formatted.len().to_string().len()
         } else {
             0
         };
 
-        let max_col = size.0.saturating_sub(gutter_width);
+        let gutter_width = SELECTION_COL_WIDTH + col_numbers_w;
+
+        let col_numbers = offset.0;
+        let col_selection = col_numbers + col_numbers_w;
+        let col_json = gutter_width;
+        let col_max = size.0.saturating_sub(col_json);
 
         while let Some(StyledLine {
             line_number,
@@ -221,7 +229,6 @@ impl UI {
             elements,
         }) = json.formatted.get(line_idx)
         {
-            let mut cursor_x = 0;
             let is_folded = json.folds.contains(pointer);
             let fold_data = is_folded.then(|| json.pointer_map.get(pointer).unwrap());
 
@@ -241,40 +248,37 @@ impl UI {
                 break;
             }
 
-            let is_selected =
-                selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1;
-
-            // Draw selection indicator bar
-            if is_selected {
-                queue!(
-                    self.screen.out,
-                    cursor::MoveTo(cursor_x as u16, cursor_y as u16),
-                    PrintStyledContent(styled(STYLE_SELECTION_BAR, "▌"))
-                )?;
-            }
-            cursor_x += 1;
-
-            // Draw gutter
             if self.line_numbers {
-                let line_num_str =
-                    format!("{:>width$} ", line_number + 1, width = gutter_width - 1);
+                let line_num_str = format!("{:>width$} ", line_number + 1, width = col_numbers_w);
                 queue!(
                     self.screen.out,
-                    cursor::MoveTo(cursor_x as u16, cursor_y as u16),
+                    cursor::MoveTo(col_numbers as u16, cursor_y as u16),
                     PrintStyledContent(styled(STYLE_LINE_NUMBER, line_num_str))
                 )?;
             }
 
-            // Calculate visible start position accounting for horizontal scroll
-            let cursor_x = gutter_width + 1 + offset.0 + indent.saturating_sub(self.scroll_x);
+            let is_selected =
+                selection_bounds.0 <= *line_number && *line_number <= selection_bounds.1;
+
+            if is_selected {
+                queue!(
+                    self.screen.out,
+                    cursor::MoveTo(col_selection as u16, cursor_y as u16),
+                    PrintStyledContent(styled(STYLE_SELECTION_BAR, SELECTION_SYM))
+                )?;
+            }
+
+            // Position cursor at JSON column + indent (accounting for horizontal scroll)
             queue!(
                 self.screen.out,
-                cursor::MoveTo(cursor_x as u16, cursor_y as u16),
+                cursor::MoveTo(
+                    (col_json + indent.saturating_sub(self.scroll_x)) as u16,
+                    cursor_y as u16
+                ),
                 ResetColor
             )?;
 
             let mut col = *indent; // Absolute column position
-            let scroll_end = self.scroll_x + max_col; // Right edge of visible area
 
             if let Some(PointerData {
                 value,
@@ -291,7 +295,7 @@ impl UI {
                 for el in &fold_string {
                     let text = &el.0;
                     for ch in text.chars() {
-                        if col >= scroll_end {
+                        if col >= col_max {
                             break;
                         }
                         if col >= self.scroll_x {
@@ -337,7 +341,7 @@ impl UI {
                     if self.line_wrap {
                         // Print with manual wrapping (no horizontal scroll in wrap mode)
                         for (char_idx, ch) in text.chars().enumerate() {
-                            if col >= max_col {
+                            if col >= col_max {
                                 cursor_y += 1;
                                 col = continuation_col;
                                 queue!(
@@ -359,7 +363,7 @@ impl UI {
                     } else {
                         // Print char by char to handle UTF-8 correctly
                         for (char_idx, ch) in text.chars().enumerate() {
-                            if col >= scroll_end {
+                            if col >= col_max {
                                 break;
                             }
                             if col >= self.scroll_x {

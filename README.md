@@ -51,6 +51,7 @@ cargo install --path .
 | <kbd><</kbd>                         | Scroll left.                       |
 | <kbd>></kbd>                         | Scroll right.                      |
 | <kbd>Space</kbd>                     | Toggle a fold.                     |
+| <kbd>z</kbd>                         | Toggle all folds.                  |
 | <kbd>/</kbd>                         | Search.                            |
 | <kbd>n</kbd>                         | Repeat previous search.            |
 | <kbd>N</kbd>                         | Repeat previous search in reverse. |

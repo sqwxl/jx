@@ -19,6 +19,7 @@ const HELP_CONTENT: &[(&str, &str)] = &[
     ("", ""),
     ("Actions", ""),
     ("Space", "Toggle fold"),
+    ("z", "Toggle fold all"),
     ("/", "Search"),
     ("n/N", "Next/prev match"),
     ("Esc", "Clear search"),
@@ -60,7 +61,10 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
     queue!(
         out,
         cursor::MoveTo(start_x as u16, start_y as u16),
-        PrintStyledContent(styled(STYLE_HELP_BORDER, format!("╭{}╮", "─".repeat(box_width - 2))))
+        PrintStyledContent(styled(
+            STYLE_HELP_BORDER,
+            format!("╭{}╮", "─".repeat(box_width - 2))
+        ))
     )?;
 
     // Draw content lines
@@ -78,7 +82,10 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
             queue!(
                 out,
                 PrintStyledContent(styled(STYLE_HELP_DESC, *key)),
-                PrintStyledContent(styled(STYLE_HELP_BORDER, format!("{} │", " ".repeat(padding))))
+                PrintStyledContent(styled(
+                    STYLE_HELP_BORDER,
+                    format!("{} │", " ".repeat(padding))
+                ))
             )?;
         } else {
             // Key-value pair
@@ -87,7 +94,10 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
                 out,
                 PrintStyledContent(styled(STYLE_HELP_KEY, *key)),
                 PrintStyledContent(styled(STYLE_HELP_DESC, format!(" - {}", desc))),
-                PrintStyledContent(styled(STYLE_HELP_BORDER, format!("{} │", " ".repeat(padding))))
+                PrintStyledContent(styled(
+                    STYLE_HELP_BORDER,
+                    format!("{} │", " ".repeat(padding))
+                ))
             )?;
         }
     }
@@ -96,7 +106,10 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
     queue!(
         out,
         cursor::MoveTo(start_x as u16, (start_y + box_height - 1) as u16),
-        PrintStyledContent(styled(STYLE_HELP_BORDER, format!("╰{}╯", "─".repeat(box_width - 2))))
+        PrintStyledContent(styled(
+            STYLE_HELP_BORDER,
+            format!("╰{}╯", "─".repeat(box_width - 2))
+        ))
     )?;
 
     Ok(())

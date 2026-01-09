@@ -162,7 +162,7 @@ const STYLE_FOLD_COUNT: ContentStyle = ContentStyle {
     underline_color: None,
 };
 pub const STYLE_SELECTION_BAR: ContentStyle = ContentStyle {
-    foreground_color: Some(Color::DarkYellow),
+    foreground_color: Some(Color::White),
     background_color: None,
     attributes: Attributes::none(),
     underline_color: None,

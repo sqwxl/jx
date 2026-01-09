@@ -22,6 +22,7 @@ pub enum Action {
     ScrollLeft,
     ScrollRight,
     Fold,
+    FoldAll,
     Sort,
     SortReverse,
     Search,
@@ -94,6 +95,7 @@ pub fn read_event(search_mode: bool, help_mode: bool) -> Result<Action> {
                     (KeyCode::Char('>'), _) => ScrollRight,
 
                     (KeyCode::Char(' '), _) => Fold,
+                    (KeyCode::Char('z'), _) => FoldAll,
 
                     (KeyCode::Char('s'), _) => Sort,
                     (KeyCode::Char('S'), _) => SortReverse,
