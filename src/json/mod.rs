@@ -375,6 +375,7 @@ mod tests {
                 value: rc_value,
                 pointer: Pointer::new(),
                 folds: HashSet::new(),
+                all_folded: false,
                 formatted,
                 pointer_map,
             }
