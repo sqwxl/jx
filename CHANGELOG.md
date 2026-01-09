@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.10](https://github.com/sqwxl/jx/compare/v0.5.9...v0.5.10) - 2026-01-09
+
+### Fixed
+
+- search highlight contrast
+
+### Other
+
+- add preview image
+
 ## [0.5.9](https://github.com/sqwxl/jx/compare/v0.5.8...v0.5.9) - 2026-01-09
 
 ### Fixed
