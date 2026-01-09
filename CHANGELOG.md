@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.11](https://github.com/sqwxl/jx/compare/v0.5.10...v0.5.11) - 2026-01-09
+
+### Added
+
+- implement fold all; tweak ui
+- implement line numbering; no-color flag
+
+### Fixed
+
+- missing initializer
+
+### Other
+
+- update readme
+
 ## [0.5.10](https://github.com/sqwxl/jx/compare/v0.5.9...v0.5.10) - 2026-01-09
 
 ### Fixed
