@@ -23,12 +23,6 @@ brew install sqwxl/tap/jx
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/sqwxl/jx/releases/latest/download/jx-installer.sh | sh
 ```
 
-### Windows
-
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://github.com/sqwxl/jx/releases/latest/download/jx-installer.ps1 | iex"
-```
-
 ### Install from source
 
 ```sh

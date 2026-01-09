@@ -11,6 +11,12 @@ license = "Unlicense"
 keywords = ["json", "cli", "explorer", "interactive"]
 categories = ["command-line-utilities", "text-processing"]
 
+[package.metadata.wix]
+upgrade-guid = "9CB9606E-6227-43C8-AA9B-B9C4A1DF9CEE"
+path-guid = "BC08C4B7-0A48-4E0D-B18B-5107ABB9F1C0"
+license = false
+eula = false
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
