@@ -40,15 +40,16 @@ pub struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Parse arguments before manipulating terminal so --help/--version work normally
+    let args = Args::parse();
+
+    set_no_color(args.no_color || std::env::var("NO_COLOR").is_ok());
+
     prepare_terminal()?;
 
     setup_panic_hook();
 
     let result = (|| -> anyhow::Result<Option<String>> {
-        let args = Args::try_parse()?;
-
-        set_no_color(args.no_color || std::env::var("NO_COLOR").is_ok());
-
         let json = parse_input(&args)?;
 
         run::event_loop(&args.path, json, args.numbered)
