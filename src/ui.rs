@@ -11,8 +11,9 @@ use crate::{
     screen::Screen,
     search::SearchResults,
     style::{
-        StyledLine, STYLE_POINTER, STYLE_SEARCH_MATCH, STYLE_SEARCH_MATCH_CURRENT,
-        STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS, STYLE_SELECTION_BAR, STYLE_TITLE,
+        styled, StyledLine, STYLE_LINE_NUMBER, STYLE_POINTER, STYLE_SEARCH_MATCH,
+        STYLE_SEARCH_MATCH_CURRENT, STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS, STYLE_SELECTION_BAR,
+        STYLE_TITLE,
     },
 };
 
@@ -24,10 +25,11 @@ pub struct UI {
     scroll_offset: usize,
     scroll_x: usize,
     line_wrap: bool,
+    line_numbers: bool,
 }
 
 impl UI {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(line_numbers: bool) -> anyhow::Result<Self> {
         Ok(Self {
             screen: Screen::new()?,
             header_height: 1,
@@ -35,7 +37,12 @@ impl UI {
             scroll_offset: 0,
             scroll_x: 0,
             line_wrap: false,
+            line_numbers,
         })
+    }
+
+    pub fn toggle_line_numbers(&mut self) {
+        self.line_numbers = !self.line_numbers;
     }
 
     pub fn toggle_line_wrap(&mut self) {
@@ -84,11 +91,10 @@ impl UI {
     }
 
     pub fn ensure_visible(&mut self, bounds: (usize, usize)) {
-        let body_height = self.body_height();
-        if bounds.0 < self.scroll_offset {
+        if bounds.0 <= self.scroll_offset {
             self.scroll_offset = bounds.0;
-        } else if bounds.1 >= self.scroll_offset + body_height {
-            self.scroll_offset = bounds.1.saturating_sub(body_height - 1);
+        } else if bounds.1 >= self.scroll_offset + self.body_height() {
+            self.scroll_offset = bounds.1.saturating_sub(self.body_height() - 1);
         }
     }
 
@@ -177,12 +183,12 @@ impl UI {
 
         queue!(
             self.screen.out,
-            PrintStyledContent(STYLE_TITLE.apply(&title_text))
+            PrintStyledContent(styled(STYLE_TITLE, &title_text))
         )?;
 
         queue!(
             self.screen.out,
-            PrintStyledContent(STYLE_POINTER.apply(&pointer_text))
+            PrintStyledContent(styled(STYLE_POINTER, &pointer_text))
         )?;
 
         Ok(())
@@ -199,7 +205,14 @@ impl UI {
         let mut line_idx = 0;
         let mut visible_line = 0;
         let mut cursor_y = offset.1;
-        let max_col = size.0;
+
+        let gutter_width = if self.line_numbers {
+            json.formatted.len().to_string().len() + 1
+        } else {
+            0
+        };
+
+        let max_col = size.0.saturating_sub(gutter_width);
 
         while let Some(StyledLine {
             line_number,
@@ -208,6 +221,7 @@ impl UI {
             elements,
         }) = json.formatted.get(line_idx)
         {
+            let mut cursor_x = 0;
             let is_folded = json.folds.contains(pointer);
             let fold_data = is_folded.then(|| json.pointer_map.get(pointer).unwrap());
 
@@ -234,16 +248,28 @@ impl UI {
             if is_selected {
                 queue!(
                     self.screen.out,
-                    cursor::MoveTo(offset.0 as u16, cursor_y as u16),
-                    PrintStyledContent(STYLE_SELECTION_BAR.apply("▌"))
+                    cursor::MoveTo(cursor_x as u16, cursor_y as u16),
+                    PrintStyledContent(styled(STYLE_SELECTION_BAR, "▌"))
+                )?;
+            }
+            cursor_x += 1;
+
+            // Draw gutter
+            if self.line_numbers {
+                let line_num_str =
+                    format!("{:>width$} ", line_number + 1, width = gutter_width - 1);
+                queue!(
+                    self.screen.out,
+                    cursor::MoveTo(cursor_x as u16, cursor_y as u16),
+                    PrintStyledContent(styled(STYLE_LINE_NUMBER, line_num_str))
                 )?;
             }
 
             // Calculate visible start position accounting for horizontal scroll
-            let visible_start = indent.saturating_sub(self.scroll_x);
+            let cursor_x = gutter_width + 1 + offset.0 + indent.saturating_sub(self.scroll_x);
             queue!(
                 self.screen.out,
-                cursor::MoveTo((visible_start + offset.0) as u16, cursor_y as u16),
+                cursor::MoveTo(cursor_x as u16, cursor_y as u16),
                 ResetColor
             )?;
 
@@ -316,7 +342,7 @@ impl UI {
                                 col = continuation_col;
                                 queue!(
                                     self.screen.out,
-                                    cursor::MoveTo(col as u16, cursor_y as u16)
+                                    cursor::MoveTo((col + gutter_width) as u16, cursor_y as u16)
                                 )?;
                             }
                             let should_highlight = match_positions
@@ -381,7 +407,7 @@ impl UI {
             // Active search mode: show /input
             queue!(
                 self.screen.out,
-                PrintStyledContent(STYLE_SEARCH_PROMPT.apply("/")),
+                PrintStyledContent(styled(STYLE_SEARCH_PROMPT, "/")),
                 Print(input)
             )?;
         }
@@ -393,7 +419,7 @@ impl UI {
             queue!(
                 self.screen.out,
                 cursor::MoveTo(status_col as u16, footer_y as u16),
-                PrintStyledContent(STYLE_SEARCH_STATUS.apply(&status))
+                PrintStyledContent(styled(STYLE_SEARCH_STATUS, &status))
             )?;
         }
 

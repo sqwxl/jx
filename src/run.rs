@@ -9,10 +9,14 @@ use crate::search::{perform_search, SearchResults};
 use crate::ui::UI;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
-pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<Option<String>> {
+pub fn event_loop(
+    filepath: &Option<PathBuf>,
+    mut json: Json,
+    numbered: bool,
+) -> anyhow::Result<Option<String>> {
     let mut clipboard = Clipboard::new()?;
 
-    let mut ui = UI::new()?;
+    let mut ui = UI::new(numbered)?;
 
     let mut output: Option<String> = None;
 
@@ -183,7 +187,6 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
                 ui.footer_height = if search_results.is_some() { 1 } else { 0 };
                 needs_redraw = true;
             }
-
             RepeatSearch => {
                 // Revive search if cleared
                 if search_results.is_none() {
@@ -288,7 +291,8 @@ pub fn event_loop(filepath: &Option<PathBuf>, mut json: Json) -> anyhow::Result<
             }
 
             ToggleLineNumbers => {
-                eprintln!("line numbers: not yet implemented");
+                ui.toggle_line_numbers();
+                needs_redraw = true;
             }
             ToggleLineWrapping => {
                 ui.toggle_line_wrap();

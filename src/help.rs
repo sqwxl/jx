@@ -1,7 +1,7 @@
 use crossterm::{cursor, queue, style::PrintStyledContent};
 use std::io::Write;
 
-use crate::style::{STYLE_HELP_BORDER, STYLE_HELP_DESC, STYLE_HELP_KEY};
+use crate::style::{styled, STYLE_HELP_BORDER, STYLE_HELP_DESC, STYLE_HELP_KEY};
 
 const HELP_CONTENT: &[(&str, &str)] = &[
     ("Navigation", ""),
@@ -31,6 +31,7 @@ const HELP_CONTENT: &[(&str, &str)] = &[
     ("", ""),
     ("Other", ""),
     ("w", "Toggle line wrap"),
+    ("#", "Toggle line numbers"),
     ("?", "Show this help"),
     ("q", "Quit"),
 ];
@@ -59,7 +60,7 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
     queue!(
         out,
         cursor::MoveTo(start_x as u16, start_y as u16),
-        PrintStyledContent(STYLE_HELP_BORDER.apply(format!("╭{}╮", "─".repeat(box_width - 2))))
+        PrintStyledContent(styled(STYLE_HELP_BORDER, format!("╭{}╮", "─".repeat(box_width - 2))))
     )?;
 
     // Draw content lines
@@ -68,7 +69,7 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
         queue!(
             out,
             cursor::MoveTo(start_x as u16, y as u16),
-            PrintStyledContent(STYLE_HELP_BORDER.apply("│ "))
+            PrintStyledContent(styled(STYLE_HELP_BORDER, "│ "))
         )?;
 
         if desc.is_empty() {
@@ -76,17 +77,17 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
             let padding = box_width - 4 - key.chars().count();
             queue!(
                 out,
-                PrintStyledContent(STYLE_HELP_DESC.apply(*key)),
-                PrintStyledContent(STYLE_HELP_BORDER.apply(format!("{} │", " ".repeat(padding))))
+                PrintStyledContent(styled(STYLE_HELP_DESC, *key)),
+                PrintStyledContent(styled(STYLE_HELP_BORDER, format!("{} │", " ".repeat(padding))))
             )?;
         } else {
             // Key-value pair
             let padding = box_width - 4 - key.chars().count() - 3 - desc.chars().count();
             queue!(
                 out,
-                PrintStyledContent(STYLE_HELP_KEY.apply(*key)),
-                PrintStyledContent(STYLE_HELP_DESC.apply(format!(" - {}", desc))),
-                PrintStyledContent(STYLE_HELP_BORDER.apply(format!("{} │", " ".repeat(padding))))
+                PrintStyledContent(styled(STYLE_HELP_KEY, *key)),
+                PrintStyledContent(styled(STYLE_HELP_DESC, format!(" - {}", desc))),
+                PrintStyledContent(styled(STYLE_HELP_BORDER, format!("{} │", " ".repeat(padding))))
             )?;
         }
     }
@@ -95,7 +96,7 @@ pub fn render_help<W: Write>(out: &mut W, screen_size: (usize, usize)) -> anyhow
     queue!(
         out,
         cursor::MoveTo(start_x as u16, (start_y + box_height - 1) as u16),
-        PrintStyledContent(STYLE_HELP_BORDER.apply(format!("╰{}╯", "─".repeat(box_width - 2))))
+        PrintStyledContent(styled(STYLE_HELP_BORDER, format!("╰{}╯", "─".repeat(box_width - 2))))
     )?;
 
     Ok(())

@@ -1,8 +1,35 @@
 use std::fmt::Display;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crossterm::style::{Attributes, Color, ContentStyle, StyledContent};
 
 use crate::json::Token;
+
+static NO_COLOR: AtomicBool = AtomicBool::new(false);
+
+pub fn set_no_color(enabled: bool) {
+    NO_COLOR.store(enabled, Ordering::Relaxed);
+}
+
+fn is_no_color() -> bool {
+    NO_COLOR.load(Ordering::Relaxed)
+}
+
+const STYLE_PLAIN: ContentStyle = ContentStyle {
+    foreground_color: None,
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+/// Apply a style, respecting the NO_COLOR flag
+pub fn styled<D: Display>(style: ContentStyle, text: D) -> StyledContent<D> {
+    if is_no_color() {
+        STYLE_PLAIN.apply(text)
+    } else {
+        style.apply(text)
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct StyledString(pub String, pub StyleClass);
@@ -54,6 +81,9 @@ pub enum StyleClass {
 
 impl StyleClass {
     pub fn apply<D: Display>(&self, text: D) -> StyledContent<D> {
+        if is_no_color() {
+            return STYLE_PLAIN.apply(text);
+        }
         match self {
             StyleClass::Whitespace => STYLE_WHITESPACE.apply(text),
             StyleClass::Punct => STYLE_PUNCT.apply(text),
@@ -191,6 +221,13 @@ pub const STYLE_HELP_KEY: ContentStyle = ContentStyle {
 
 pub const STYLE_HELP_DESC: ContentStyle = ContentStyle {
     foreground_color: Some(Color::White),
+    background_color: None,
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const STYLE_LINE_NUMBER: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::Grey),
     background_color: None,
     attributes: Attributes::none(),
     underline_color: None,

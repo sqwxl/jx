@@ -15,6 +15,7 @@ use crossterm::{
 };
 
 use crate::json::Json;
+use crate::style::set_no_color;
 
 mod events;
 mod help;
@@ -34,9 +35,6 @@ pub struct Args {
     #[arg(long, help = "Show line numbers")]
     numbered: bool,
 
-    #[arg(long, help = "Disable syntax highlighting")]
-    no_syntax: bool,
-
     #[arg(long, help = "Disable color")]
     no_color: bool,
 }
@@ -49,9 +47,11 @@ fn main() -> anyhow::Result<()> {
     let result = (|| -> anyhow::Result<Option<String>> {
         let args = Args::try_parse()?;
 
+        set_no_color(args.no_color || std::env::var("NO_COLOR").is_ok());
+
         let json = parse_input(&args)?;
 
-        run::event_loop(&args.path, json)
+        run::event_loop(&args.path, json, args.numbered)
     })()
     .transpose();
 

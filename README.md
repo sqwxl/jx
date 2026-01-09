@@ -6,11 +6,10 @@
 jx examples/reference.json                   # open a JSON file directly
 curl example.com/some-json-endpoint | jx     # ...or pipe it in
 ```
+
 <img width="1616" height="984" alt="image" src="https://github.com/user-attachments/assets/5bbd3376-a9fe-4d78-8903-4646b160eb81" />
 
 ## Installation
-
-You can download a binary directly from the [releases](https://github.com/sqwxl/jx/releases) page, or run one of the following.
 
 ### Homebrew
 
@@ -30,10 +29,10 @@ curl --proto '=https' --tlsv1.2 -LsSf https://github.com/sqwxl/jx/releases/lates
 powershell -ExecutionPolicy ByPass -c "irm https://github.com/sqwxl/jx/releases/latest/download/jx-installer.ps1 | iex"
 ```
 
-### Cargo
+### Install from source
 
 ```sh
-cargo install jx
+cargo install --path .
 ```
 
 ## Usage
@@ -73,13 +72,13 @@ cargo install jx
 - [x] Output selection or value to console.
 - [x] Pretty-printing.
 - [x] Searching.
-- [ ] Filtering.
-- [ ] Sorting.
 - [x] Scrolling.
 - [x] Horizontal scrolling.
 - [x] Folding.
 - [x] Syntax highlighting.
+- [x] Line wrapping.
+- [x] Line numbers.
 - [ ] Multiple files.
 - [ ] Broken files.
-- [ ] Line numbers.
-- [x] Line wrapping.
+- [ ] Filtering.
+- [ ] Sorting.
