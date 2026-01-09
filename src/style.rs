@@ -148,7 +148,7 @@ pub const STYLE_TITLE: ContentStyle = ContentStyle {
 pub const STYLE_POINTER: ContentStyle = STYLE_TITLE;
 
 pub const STYLE_SEARCH_MATCH: ContentStyle = ContentStyle {
-    foreground_color: None,
+    foreground_color: Some(Color::Black),
     background_color: Some(Color::DarkYellow),
     attributes: Attributes::none(),
     underline_color: None,
