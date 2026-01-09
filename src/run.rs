@@ -12,11 +12,11 @@ use crate::ui::UI;
 pub fn event_loop(
     filepath: &Option<PathBuf>,
     mut json: Json,
-    numbered: bool,
+    no_numbers: bool,
 ) -> anyhow::Result<Option<String>> {
     let mut clipboard = Clipboard::new()?;
 
-    let mut ui = UI::new(numbered)?;
+    let mut ui = UI::new(no_numbers)?;
 
     let mut output: Option<String> = None;
 

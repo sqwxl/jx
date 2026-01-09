@@ -32,8 +32,8 @@ pub struct Args {
     #[arg(value_parser = validate_path)]
     path: Option<PathBuf>,
 
-    #[arg(long, help = "Show line numbers")]
-    numbered: bool,
+    #[arg(long, help = "Hide line numbers")]
+    no_numbers: bool,
 
     #[arg(long, help = "Disable color")]
     no_color: bool,
@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
     let result = (|| -> anyhow::Result<Option<String>> {
         let json = parse_input(&args)?;
 
-        run::event_loop(&args.path, json, args.numbered)
+        run::event_loop(&args.path, json, args.no_numbers)
     })()
     .transpose();
 

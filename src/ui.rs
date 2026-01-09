@@ -28,11 +28,11 @@ pub struct UI {
     scroll_offset: usize,
     scroll_x: usize,
     line_wrap: bool,
-    line_numbers: bool,
+    no_numbers: bool,
 }
 
 impl UI {
-    pub fn new(line_numbers: bool) -> anyhow::Result<Self> {
+    pub fn new(no_numbers: bool) -> anyhow::Result<Self> {
         Ok(Self {
             screen: Screen::new()?,
             header_height: 1,
@@ -40,12 +40,12 @@ impl UI {
             scroll_offset: 0,
             scroll_x: 0,
             line_wrap: false,
-            line_numbers,
+            no_numbers,
         })
     }
 
     pub fn toggle_line_numbers(&mut self) {
-        self.line_numbers = !self.line_numbers;
+        self.no_numbers = !self.no_numbers;
     }
 
     pub fn toggle_line_wrap(&mut self) {
@@ -209,10 +209,10 @@ impl UI {
         let mut visible_line = 0;
         let mut cursor_y = offset.1;
 
-        let col_numbers_w = if self.line_numbers {
-            json.formatted.len().to_string().len()
-        } else {
+        let col_numbers_w = if self.no_numbers {
             0
+        } else {
+            json.formatted.len().to_string().len()
         };
 
         let gutter_width = SELECTION_COL_WIDTH + col_numbers_w;
@@ -248,7 +248,7 @@ impl UI {
                 break;
             }
 
-            if self.line_numbers {
+            if !self.no_numbers {
                 let line_num_str = format!("{:>width$} ", line_number + 1, width = col_numbers_w);
                 queue!(
                     self.screen.out,
