@@ -64,6 +64,7 @@ cargo install --path .
 | <kbd>o</kbd>                         | Output the selection (raw).        |
 | <kbd>O</kbd>                         | Output the value (raw).            |
 | <kbd>w</kbd>                         | Toggle line wrapping.              |
+| <kbd>#</kbd>                         | Toggle line numbering.             |
 
 ## Features
 

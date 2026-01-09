@@ -98,12 +98,8 @@ pub fn event_loop(
                 needs_redraw = json.toggle_fold();
             }
 
-            Sort => {
-                eprintln!("sort: not yet implemented");
-            }
-            SortReverse => {
-                eprintln!("sort reverse: not yet implemented");
-            }
+            Sort => {}
+            SortReverse => {}
 
             Search => {
                 search_input = Some(String::new());
@@ -232,9 +228,7 @@ pub fn event_loop(
                     }
                 }
             }
-            Filter => {
-                eprintln!("filter: not yet implemented");
-            }
+            Filter => {}
             ClearSearch => {
                 if search_results.is_some() {
                     last_search = search_results.take();
