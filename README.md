@@ -7,7 +7,8 @@ jx examples/reference.json                   # open a JSON file directly
 curl example.com/some-json-endpoint | jx     # ...or pipe it in
 ```
 
-<img width="1616" height="984" alt="image" src="https://github.com/user-attachments/assets/5bbd3376-a9fe-4d78-8903-4646b160eb81" />
+<img width="2238" height="1198" alt="image" src="https://github.com/user-attachments/assets/74e95f1b-a125-4e37-b108-9df909cb8512" />
+
 
 ## Installation
 
