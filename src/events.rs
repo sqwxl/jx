@@ -10,8 +10,6 @@ pub enum Direction {
     Right,
 }
 
-use Direction::*;
-
 pub enum Action {
     Resize(usize, usize),
     Quit,
@@ -40,18 +38,19 @@ pub enum Action {
     SearchCancel,
     OutputSelectionPretty,
     OutputValuePretty,
-    OutputSelection,
-    OutputValue,
+    OutputSelectionRaw,
+    OutputValueRaw,
     CopySelectionPretty,
     CopyValuePretty,
-    CopySelection,
-    CopyValue,
+    CopySelectionRaw,
+    CopyValueRaw,
     ToggleLineNumbers,
     ToggleLineWrapping,
     Ignore,
 }
 
 use Action::*;
+use KeyCode::*;
 
 pub fn read_event(
     search_mode: bool,
@@ -80,57 +79,57 @@ pub fn read_event(
         }) => {
             if search_mode {
                 match (code, modifiers) {
-                    (KeyCode::Esc, _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => SearchCancel,
-                    (KeyCode::Enter, _) => SearchConfirm,
-                    (KeyCode::Backspace, _) => SearchBackspace,
-                    (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => SearchInput(c),
+                    (Esc, _) | (Char('c'), KeyModifiers::CONTROL) => SearchCancel,
+                    (Enter, _) => SearchConfirm,
+                    (Backspace, _) => SearchBackspace,
+                    (Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => SearchInput(c),
                     _ => Ignore,
                 }
             } else {
                 match (code, modifiers) {
-                    (KeyCode::Char('q'), _) | (KeyCode::Char('c'), KeyModifiers::CONTROL) => Quit,
+                    (Char('q'), _) | (Char('c'), KeyModifiers::CONTROL) => Quit,
+                    (Char('?'), _) => ShowHelp,
 
-                    (KeyCode::Char('h') | KeyCode::Left, _) => Move(Left),
-                    (KeyCode::Char('j') | KeyCode::Down, _) => Move(Down),
-                    (KeyCode::Char('k') | KeyCode::Up, _) => Move(Up),
-                    (KeyCode::Char('l') | KeyCode::Right, _) => Move(Right),
+                    (Char('h') | Left, _) => Move(Direction::Left),
+                    (Char('j') | Down, _) => Move(Direction::Down),
+                    (Char('k') | Up, _) => Move(Direction::Up),
+                    (Char('l') | Right, _) => Move(Direction::Right),
 
-                    (KeyCode::Char('y'), KeyModifiers::CONTROL) => ScrollLine(Up),
-                    (KeyCode::Char('e'), KeyModifiers::CONTROL) => ScrollLine(Down),
-                    (KeyCode::Char('u'), _) => ScrollHalf(Up),
-                    (KeyCode::Char('d'), _) => ScrollHalf(Down),
-                    (KeyCode::Char('b'), _) => ScrollFull(Up),
-                    (KeyCode::Char('f'), _) => ScrollFull(Down),
-                    (KeyCode::Char('g'), _) => ScrollTop,
-                    (KeyCode::Char('G'), _) => ScrollBottom,
-                    (KeyCode::Char('<'), _) => ScrollLeft,
-                    (KeyCode::Char('>'), _) => ScrollRight,
+                    (Char('y'), KeyModifiers::CONTROL) => ScrollLine(Direction::Up),
+                    (Char('e'), KeyModifiers::CONTROL) => ScrollLine(Direction::Down),
+                    (Char('u'), _) => ScrollHalf(Direction::Up),
+                    (Char('d'), _) => ScrollHalf(Direction::Down),
+                    (Char('b'), _) => ScrollFull(Direction::Up),
+                    (Char('f'), _) => ScrollFull(Direction::Down),
+                    (Char('g'), _) => ScrollTop,
+                    (Char('G'), _) => ScrollBottom,
+                    (Char('<'), _) => ScrollLeft,
+                    (Char('>'), _) => ScrollRight,
 
-                    (KeyCode::Char(' '), _) => Fold,
-                    (KeyCode::Char('z'), _) => FoldAll,
+                    (Char(' ') | Enter, _) => Fold,
+                    (Char('z'), _) => FoldAll,
 
-                    (KeyCode::Char('s'), _) => Sort,
-                    (KeyCode::Char('S'), _) => SortReverse,
+                    (Char('/'), _) => Search,
+                    (Char('n'), _) => RepeatSearch,
+                    (Char('N'), _) => RepeatSearchBackward,
+                    (Esc, _) => ClearSearch,
 
-                    (KeyCode::Char('/'), _) => Search,
-                    (KeyCode::Char('?'), _) => ShowHelp,
-                    (KeyCode::Char('n'), _) => RepeatSearch,
-                    (KeyCode::Char('N'), _) => RepeatSearchBackward,
-                    (KeyCode::Char('&'), _) => Filter,
-                    (KeyCode::Esc, _) => ClearSearch,
+                    (Char('s'), _) => Sort,
+                    (Char('S'), _) => SortReverse,
+                    (Char('&'), _) => Filter,
 
-                    (KeyCode::Enter, KeyModifiers::NONE) => OutputSelectionPretty,
-                    (KeyCode::Enter, KeyModifiers::SHIFT) => OutputValuePretty,
-                    (KeyCode::Char('o'), _) => OutputSelection,
-                    (KeyCode::Char('O'), _) => OutputValue,
+                    (Char('y'), KeyModifiers::NONE) => CopySelectionPretty,
+                    (Char('Y'), KeyModifiers::NONE) => CopyValuePretty,
+                    (Char('y'), KeyModifiers::ALT) => CopySelectionRaw,
+                    (Char('Y'), KeyModifiers::ALT) => CopyValueRaw,
 
-                    (KeyCode::Char('y'), _) => CopySelectionPretty,
-                    (KeyCode::Char('Y'), _) => CopyValuePretty,
-                    (KeyCode::Char('r'), _) => CopySelection,
-                    (KeyCode::Char('R'), _) => CopyValue,
+                    (Char('o'), KeyModifiers::NONE) => OutputSelectionPretty,
+                    (Char('O'), KeyModifiers::NONE) => OutputValuePretty,
+                    (Char('o'), KeyModifiers::ALT) => OutputSelectionRaw,
+                    (Char('O'), KeyModifiers::ALT) => OutputValueRaw,
 
-                    (KeyCode::Char('#'), _) => ToggleLineNumbers,
-                    (KeyCode::Char('w'), _) => ToggleLineWrapping,
+                    (Char('#'), _) => ToggleLineNumbers,
+                    (Char('w'), _) => ToggleLineWrapping,
 
                     _ => Ignore,
                 }
