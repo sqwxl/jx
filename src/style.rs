@@ -168,14 +168,12 @@ pub const STYLE_SELECTION_BAR: ContentStyle = ContentStyle {
     underline_color: None,
 };
 
-pub const STYLE_TITLE: ContentStyle = ContentStyle {
+pub const STYLE_HEADER: ContentStyle = ContentStyle {
     foreground_color: Some(Color::White),
-    background_color: None,
+    background_color: Some(Color::DarkGrey),
     attributes: Attributes::none(),
     underline_color: None,
 };
-
-pub const STYLE_POINTER: ContentStyle = STYLE_TITLE;
 
 pub const STYLE_SEARCH_MATCH: ContentStyle = ContentStyle {
     foreground_color: Some(Color::Black),

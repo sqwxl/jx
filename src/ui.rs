@@ -11,9 +11,8 @@ use crate::{
     screen::Screen,
     search::SearchResults,
     style::{
-        styled, StyledLine, STYLE_LINE_NUMBER, STYLE_POINTER, STYLE_SEARCH_MATCH,
+        styled, StyledLine, STYLE_HEADER, STYLE_LINE_NUMBER, STYLE_SEARCH_MATCH,
         STYLE_SEARCH_MATCH_CURRENT, STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS, STYLE_SELECTION_BAR,
-        STYLE_TITLE,
     },
 };
 
@@ -72,7 +71,7 @@ impl UI {
 
     pub fn scroll_by(&mut self, delta: isize, max_lines: usize) -> bool {
         let old = self.scroll_offset;
-        let max_offset = max_lines.saturating_sub(1);
+        let max_offset = max_lines.saturating_sub(self.screen.size.1 - 1);
         self.scroll_offset = if delta < 0 {
             self.scroll_offset.saturating_sub(delta.unsigned_abs())
         } else {
@@ -144,7 +143,7 @@ impl UI {
     ) -> anyhow::Result<()> {
         self.screen.clear()?;
 
-        self.render_header(filepath, &json.period_path())?;
+        self.render_header(filepath)?;
         let body_height = self.screen.size.1 - self.header_height - self.footer_height;
         self.render_body(
             json,
@@ -161,37 +160,25 @@ impl UI {
         self.screen.print()
     }
 
-    fn render_header(&mut self, filepath: &Option<PathBuf>, pointer: &str) -> anyhow::Result<()> {
-        let mut title_text = String::new();
-
-        match &filepath {
-            Some(path) => {
-                let path = format!("{}", path.display());
-
-                // TODO try to shorten path if too long
-                let w = self.screen.size.0;
-                let path = if path.len() > w { &path[..w] } else { &path };
-
-                title_text.push_str(path);
+    fn render_header(&mut self, filepath: &Option<PathBuf>) -> anyhow::Result<()> {
+        let fp = if let Some(path) = filepath {
+            let path = format!("{}", path.display());
+            if path.len() > self.screen.size.0 {
+                path[..self.screen.size.0].to_owned()
+            } else {
+                path.clone()
             }
-            _ => {
-                let stdin = "stdin";
-                title_text.push_str(stdin);
-            }
-        }
+        } else {
+            "stdin".to_string()
+        };
 
-        let pointer_text = " ".to_owned() + pointer;
+        let header = format!("{fp:<width$}", width = self.screen.size.0);
 
         queue!(self.screen.out, cursor::MoveToColumn(0), ResetColor)?;
 
         queue!(
             self.screen.out,
-            PrintStyledContent(styled(STYLE_TITLE, &title_text))
-        )?;
-
-        queue!(
-            self.screen.out,
-            PrintStyledContent(styled(STYLE_POINTER, &pointer_text))
+            PrintStyledContent(styled(STYLE_HEADER, &header))
         )?;
 
         Ok(())
