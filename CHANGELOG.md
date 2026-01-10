@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.13](https://github.com/sqwxl/jx/compare/v0.5.12...v0.5.13) - 2026-01-10
+
+### Added
+
+- highlight on yank
+- prevent scrolling out-of-bounds; simplify header ui
+- enable numbers by default; add --no-numbers flag
+
+### Fixed
+
+- parse args before preparing term
+
+### Other
+
+- update image
+
 ## [0.5.12](https://github.com/sqwxl/jx/compare/v0.5.11...v0.5.12) - 2026-01-09
 
 ### Added
