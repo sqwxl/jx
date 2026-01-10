@@ -6,7 +6,7 @@ use serde_json::{to_string_pretty, Value};
 use crate::events::{read_event, Action::*, Direction::*};
 use crate::json::Json;
 use crate::search::{perform_search, SearchResults};
-use crate::ui::UI;
+use crate::ui::{FlashMode, UI};
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
 pub fn event_loop(
@@ -40,7 +40,32 @@ pub fn event_loop(
         let mut needs_redraw = false;
         let search_mode = search_input.is_some();
 
-        match read_event(search_mode, help_visible)? {
+        // Check if flash expired and needs redraw to clear
+        if ui.clear_flash_if_expired() {
+            needs_redraw = true;
+        }
+
+        // Use timeout for polling if flash is active
+        let timeout = ui.flash_remaining();
+
+        let action = match read_event(search_mode, help_visible, timeout)? {
+            Some(action) => action,
+            None => {
+                // Timeout - flash expired, redraw to clear it
+                if ui.clear_flash_if_expired() {
+                    ui.render(
+                        filepath,
+                        &json,
+                        search_input.as_deref(),
+                        search_results.as_ref(),
+                        help_visible,
+                    )?;
+                }
+                continue;
+            }
+        };
+
+        match action {
             Resize(w, h) => {
                 needs_redraw = ui.resize((w, h));
             }
@@ -265,25 +290,32 @@ pub fn event_loop(
                 }
             }
 
-            // TODO: Visual feedback
             CopySelectionPretty => {
                 if let Some((key, value)) = json.token_value_pair() {
                     clipboard.set_text(selection_pretty(key, value)?)?;
+                    ui.start_flash(FlashMode::Selection);
+                    needs_redraw = true;
                 }
             }
             CopyValuePretty => {
                 if let Some(s) = json.value().map(to_string_pretty) {
                     clipboard.set_text(s?)?;
+                    ui.start_flash(FlashMode::Value);
+                    needs_redraw = true;
                 }
             }
             CopySelection => {
                 if let Some((key, value)) = json.token_value_pair() {
                     clipboard.set_text(selection(key, value)?)?;
+                    ui.start_flash(FlashMode::Selection);
+                    needs_redraw = true;
                 }
             }
             CopyValue => {
                 if let Some(s) = json.value().map(|v| v.to_string()) {
                     clipboard.set_text(s)?;
+                    ui.start_flash(FlashMode::Value);
+                    needs_redraw = true;
                 }
             }
 

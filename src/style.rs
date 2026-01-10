@@ -230,3 +230,12 @@ pub const STYLE_LINE_NUMBER: ContentStyle = ContentStyle {
     attributes: Attributes::none(),
     underline_color: None,
 };
+
+pub const STYLE_COPY_FLASH: ContentStyle = ContentStyle {
+    foreground_color: Some(Color::Black),
+    background_color: Some(Color::Cyan),
+    attributes: Attributes::none(),
+    underline_color: None,
+};
+
+pub const FLASH_DURATION_MS: u64 = 150;

@@ -1,9 +1,16 @@
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use crossterm::{
     cursor, queue,
     style::{ContentStyle, Print, PrintStyledContent, ResetColor},
 };
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FlashMode {
+    Selection, // Flash entire selection (key + value)
+    Value,     // Flash only the value portion
+}
 
 use crate::{
     help::render_help,
@@ -11,8 +18,9 @@ use crate::{
     screen::Screen,
     search::SearchResults,
     style::{
-        styled, StyledLine, STYLE_HEADER, STYLE_LINE_NUMBER, STYLE_SEARCH_MATCH,
-        STYLE_SEARCH_MATCH_CURRENT, STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS, STYLE_SELECTION_BAR,
+        styled, StyledLine, FLASH_DURATION_MS, STYLE_COPY_FLASH, STYLE_HEADER, STYLE_LINE_NUMBER,
+        STYLE_SEARCH_MATCH, STYLE_SEARCH_MATCH_CURRENT, STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS,
+        STYLE_SELECTION_BAR,
     },
 };
 
@@ -28,6 +36,7 @@ pub struct UI {
     scroll_x: usize,
     line_wrap: bool,
     no_numbers: bool,
+    flash_state: Option<(Instant, FlashMode)>,
 }
 
 impl UI {
@@ -40,6 +49,7 @@ impl UI {
             scroll_x: 0,
             line_wrap: false,
             no_numbers,
+            flash_state: None,
         })
     }
 
@@ -133,6 +143,37 @@ impl UI {
         self.screen.resize(size)
     }
 
+    pub fn start_flash(&mut self, mode: FlashMode) {
+        self.flash_state = Some((Instant::now(), mode));
+    }
+
+    pub fn flash_mode(&self) -> Option<FlashMode> {
+        self.flash_state.and_then(|(start, mode)| {
+            if start.elapsed() < Duration::from_millis(FLASH_DURATION_MS) {
+                Some(mode)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn clear_flash_if_expired(&mut self) -> bool {
+        if self.flash_state.is_some() && self.flash_mode().is_none() {
+            self.flash_state = None;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn flash_remaining(&self) -> Option<Duration> {
+        self.flash_state.and_then(|(start, _)| {
+            let elapsed = start.elapsed();
+            let duration = Duration::from_millis(FLASH_DURATION_MS);
+            duration.checked_sub(elapsed)
+        })
+    }
+
     pub fn render(
         &mut self,
         filepath: &Option<PathBuf>,
@@ -192,6 +233,7 @@ impl UI {
         search_results: Option<&SearchResults>,
     ) -> anyhow::Result<()> {
         let selection_bounds = json.bounds();
+        let flash_mode = self.flash_mode();
         let mut line_idx = 0;
         let mut visible_line = 0;
         let mut cursor_y = offset.1;
@@ -309,6 +351,13 @@ impl UI {
                     continuation_col = *indent;
                 }
 
+                // Find index of first value element (after ": " separator) for Value flash mode
+                let value_start_idx = elements
+                    .iter()
+                    .position(|el| el.0 == ": ")
+                    .map(|i| i + 1)
+                    .unwrap_or(0);
+
                 for (elem_idx, el) in elements.iter().enumerate() {
                     let text = &el.0;
 
@@ -325,6 +374,21 @@ impl UI {
                         })
                         .unwrap_or((None, None));
 
+                    // Determine if this element should flash based on mode
+                    let should_flash = if !is_selected {
+                        false
+                    } else {
+                        match flash_mode {
+                            Some(FlashMode::Selection) => true,
+                            Some(FlashMode::Value) => {
+                                // On first line, only flash value elements (after ": ")
+                                // On other lines, flash everything
+                                *line_number != selection_bounds.0 || elem_idx >= value_start_idx
+                            }
+                            None => false,
+                        }
+                    };
+
                     if self.line_wrap {
                         // Print with manual wrapping (no horizontal scroll in wrap mode)
                         for (char_idx, ch) in text.chars().enumerate() {
@@ -339,7 +403,9 @@ impl UI {
                             let should_highlight = match_positions
                                 .map(|pos| pos.contains(&char_idx))
                                 .unwrap_or(false);
-                            let styled = if should_highlight {
+                            let styled = if should_flash {
+                                apply_with_bg(el.1.apply(ch), STYLE_COPY_FLASH)
+                            } else if should_highlight {
                                 apply_with_bg(el.1.apply(ch), search_style.unwrap())
                             } else {
                                 el.1.apply(ch)
@@ -357,7 +423,9 @@ impl UI {
                                 let should_highlight = match_positions
                                     .map(|pos| pos.contains(&char_idx))
                                     .unwrap_or(false);
-                                let styled = if should_highlight {
+                                let styled = if should_flash {
+                                    apply_with_bg(el.1.apply(ch), STYLE_COPY_FLASH)
+                                } else if should_highlight {
                                     apply_with_bg(el.1.apply(ch), search_style.unwrap())
                                 } else {
                                     el.1.apply(ch)

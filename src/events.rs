@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -51,7 +53,17 @@ pub enum Action {
 
 use Action::*;
 
-pub fn read_event(search_mode: bool, help_mode: bool) -> Result<Action> {
+pub fn read_event(
+    search_mode: bool,
+    help_mode: bool,
+    timeout: Option<Duration>,
+) -> Result<Option<Action>> {
+    if let Some(duration) = timeout {
+        if !event::poll(duration)? {
+            return Ok(None);
+        }
+    }
+
     let action = match event::read()? {
         Event::Resize(w, h) => Resize(w as usize, h as usize),
 
@@ -83,8 +95,8 @@ pub fn read_event(search_mode: bool, help_mode: bool) -> Result<Action> {
                     (KeyCode::Char('k') | KeyCode::Up, _) => Move(Up),
                     (KeyCode::Char('l') | KeyCode::Right, _) => Move(Right),
 
-                    (KeyCode::Char('y'), _) => ScrollLine(Up),
-                    (KeyCode::Char('e'), _) => ScrollLine(Down),
+                    (KeyCode::Char('y'), KeyModifiers::CONTROL) => ScrollLine(Up),
+                    (KeyCode::Char('e'), KeyModifiers::CONTROL) => ScrollLine(Down),
                     (KeyCode::Char('u'), _) => ScrollHalf(Up),
                     (KeyCode::Char('d'), _) => ScrollHalf(Down),
                     (KeyCode::Char('b'), _) => ScrollFull(Up),
@@ -112,9 +124,8 @@ pub fn read_event(search_mode: bool, help_mode: bool) -> Result<Action> {
                     (KeyCode::Char('o'), _) => OutputSelection,
                     (KeyCode::Char('O'), _) => OutputValue,
 
-                    (KeyCode::Char('c'), _) => CopySelectionPretty,
-                    (KeyCode::Char('C'), KeyModifiers::CONTROL) => CopySelectionPretty,
-                    (KeyCode::Char('C'), _) => CopyValuePretty,
+                    (KeyCode::Char('y'), _) => CopySelectionPretty,
+                    (KeyCode::Char('Y'), _) => CopyValuePretty,
                     (KeyCode::Char('r'), _) => CopySelection,
                     (KeyCode::Char('R'), _) => CopyValue,
 
@@ -129,5 +140,5 @@ pub fn read_event(search_mode: bool, help_mode: bool) -> Result<Action> {
         _ => Ignore,
     };
 
-    Ok(action)
+    Ok(Some(action))
 }

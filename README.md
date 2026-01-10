@@ -31,35 +31,35 @@ cargo install --path .
 
 ## Usage
 
-| Key                                  | Action                             |
-| ------------------------------------ | ---------------------------------- |
-| <kbd>?</kbd>                         | Show help.                         |
-| <kbd>q</kbd> <kbd>Ctrl+c</kbd>       | Quit.                              |
-| <kbd>j</kbd> <kbd>k</kbd>            | Next/Previous node.                |
-| <kbd>h</kbd> <kbd>l</kbd>            | In/Out node.                       |
-| <kbd>y</kbd> <kbd>e</kbd>            | Scroll one line up/down.           |
-| <kbd>u</kbd> <kbd>d</kbd>            | Scroll half page up/down.          |
-| <kbd>b</kbd> <kbd>f</kbd>            | Scroll full page up/down.          |
-| <kbd>g</kbd>                         | Go to first line.                  |
-| <kbd>G</kbd>                         | Go to last line.                   |
-| <kbd><</kbd>                         | Scroll left.                       |
-| <kbd>></kbd>                         | Scroll right.                      |
-| <kbd>Space</kbd>                     | Toggle a fold.                     |
-| <kbd>z</kbd>                         | Toggle all folds.                  |
-| <kbd>/</kbd>                         | Search.                            |
-| <kbd>n</kbd>                         | Repeat previous search.            |
-| <kbd>N</kbd>                         | Repeat previous search in reverse. |
-| <kbd>Esc</kbd>                       | Clear search.                      |
-| <kbd>c</kbd> <kbd>Ctrl+Shift+C</kbd> | Copy the selection (pretty).       |
-| <kbd>C</kbd>                         | Copy the value (pretty).           |
-| <kbd>r</kbd>                         | Copy the selection (raw).          |
-| <kbd>R</kbd>                         | Copy the value (raw).              |
-| <kbd>Enter</kbd>                     | Output the selection (pretty).     |
-| <kbd>Shift+Enter</kbd>               | Output the value (pretty).         |
-| <kbd>o</kbd>                         | Output the selection (raw).        |
-| <kbd>O</kbd>                         | Output the value (raw).            |
-| <kbd>w</kbd>                         | Toggle line wrapping.              |
-| <kbd>#</kbd>                         | Toggle line numbering.             |
+| Key                                                      | Action                            |
+| -------------------------------------------------------- | --------------------------------- |
+| <kbd>?</kbd>                                             | Show help                         |
+| <kbd>q</kbd> <kbd>Ctrl+c</kbd>                           | Quit                              |
+| <kbd>j</kbd><kbd>Down</kbd>/<kbd>k</kbd><kbd>Up</kbd>    | Next/Previous node                |
+| <kbd>h</kbd><kbd>Left</kbd>/<kbd>l</kbd><kbd>Right</kbd> | In/Out node                       |
+| <kbd>Ctrl+y</kbd> <kbd>Ctrl+e</kbd>                      | Scroll line up/down               |
+| <kbd>u</kbd> <kbd>d</kbd>                                | Scroll half page up/down          |
+| <kbd>b</kbd> <kbd>f</kbd>                                | Scroll full page up/down          |
+| <kbd>g</kbd>                                             | Go to top                         |
+| <kbd>G</kbd>                                             | Go to bottom                      |
+| <kbd><</kbd>                                             | Scroll left                       |
+| <kbd>></kbd>                                             | Scroll right                      |
+| <kbd>Space</kbd>                                         | Toggle a fold                     |
+| <kbd>z</kbd>                                             | Toggle all folds                  |
+| <kbd>/</kbd>                                             | Search                            |
+| <kbd>n</kbd>                                             | Repeat previous search            |
+| <kbd>N</kbd>                                             | Repeat previous search in reverse |
+| <kbd>Esc</kbd>                                           | Clear search                      |
+| <kbd>y</kbd>                                             | Copy the selection (pretty)       |
+| <kbd>r</kbd>                                             | Copy the selection (raw)          |
+| <kbd>Y</kbd>                                             | Copy the value (pretty)           |
+| <kbd>R</kbd>                                             | Copy the value (raw)              |
+| <kbd>Enter</kbd>                                         | Output the selection (pretty)     |
+| <kbd>o</kbd>                                             | Output the selection (raw)        |
+| <kbd>Shift+Enter</kbd>                                   | Output the value (pretty)         |
+| <kbd>O</kbd>                                             | Output the value (raw)            |
+| <kbd>w</kbd>                                             | Toggle line wrapping              |
+| <kbd>#</kbd>                                             | Toggle line numbering             |
 
 ## Features
 
@@ -74,7 +74,5 @@ cargo install --path .
 - [x] Syntax highlighting.
 - [x] Line wrapping.
 - [x] Line numbers.
-- [ ] Multiple files.
-- [ ] Broken files.
 - [ ] Filtering.
 - [ ] Sorting.
