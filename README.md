@@ -61,19 +61,3 @@ cargo install --path .
 | <kbd>O</kbd>                                             | Output the value (raw)            |
 | <kbd>w</kbd>                                             | Toggle line wrapping              |
 | <kbd>#</kbd>                                             | Toggle line numbering             |
-
-## Features
-
-- [x] Navigation.
-- [x] Copy selection or value to clipboard.
-- [x] Output selection or value to console.
-- [x] Pretty-printing.
-- [x] Searching.
-- [x] Scrolling.
-- [x] Horizontal scrolling.
-- [x] Folding.
-- [x] Syntax highlighting.
-- [x] Line wrapping.
-- [x] Line numbers.
-- [ ] Filtering.
-- [ ] Sorting.
