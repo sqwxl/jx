@@ -42,6 +42,13 @@ pub struct PointerData {
 /// A map from tokens to first and last lines matching the formatted value.
 pub type PointerMap = HashMap<Vec<Token>, PointerData>;
 
+/// Returns the total width of the formatted JSON
+fn measure_width(formatted: &[StyledLine]) -> usize {
+    formatted.iter().fold(0, |w, s| {
+        w.max(s.indent + s.elements.iter().fold(0, |l, e| l + e.0.chars().count()))
+    })
+}
+
 /// The main application state. It holds the current pointer (user selection),
 /// the active folds, the formatted lines (containing style information) as well as a map
 /// containing extra data about each pointer.
@@ -52,6 +59,7 @@ pub struct Json {
     all_folded: bool,
     pub formatted: Vec<StyledLine>,
     pub pointer_map: PointerMap,
+    pub width: usize,
 }
 
 impl From<Rc<Value>> for Json {
@@ -61,12 +69,15 @@ impl From<Rc<Value>> for Json {
 
         Formatter::format(Rc::clone(&value), &mut formatted, &mut pointer_map);
 
+        let width = measure_width(&formatted);
+
         Self {
             value,
             folds: HashSet::new(),
             all_folded: false,
             pointer: Pointer::new(),
             formatted,
+            width,
             pointer_map,
         }
     }
@@ -165,9 +176,10 @@ impl Json {
                     self.folds.insert(tokens.clone());
                 }
             }
-            self.pointer.to_start();
+            self.pointer.rewind();
             self.all_folded = true;
         }
+
         true
     }
 
@@ -369,6 +381,7 @@ mod tests {
         fn from(value: Value) -> Self {
             let rc_value = Rc::new(value);
             let mut formatted = Vec::new();
+            let width = measure_width(&formatted);
             let mut pointer_map = HashMap::new();
             Formatter::format(Rc::clone(&rc_value), &mut formatted, &mut pointer_map);
             Self {
@@ -377,6 +390,7 @@ mod tests {
                 folds: HashSet::new(),
                 all_folded: false,
                 formatted,
+                width,
                 pointer_map,
             }
         }

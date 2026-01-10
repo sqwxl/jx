@@ -58,7 +58,7 @@ impl Pointer {
     }
 
     /// Moves the pointer to the very start
-    pub fn to_start(&mut self) -> &mut Self {
+    pub fn rewind(&mut self) -> &mut Self {
         self.cursor = None;
 
         self

@@ -40,18 +40,15 @@ pub fn event_loop(
         let mut needs_redraw = false;
         let search_mode = search_input.is_some();
 
-        // Check if flash expired and needs redraw to clear
         if ui.clear_flash_if_expired() {
             needs_redraw = true;
         }
 
-        // Use timeout for polling if flash is active
         let timeout = ui.flash_remaining();
 
         let action = match read_event(search_mode, help_visible, timeout)? {
             Some(action) => action,
             None => {
-                // Timeout - flash expired, redraw to clear it
                 if ui.clear_flash_if_expired() {
                     ui.render(
                         filepath,
@@ -71,7 +68,6 @@ pub fn event_loop(
             }
 
             Quit => {
-                // If search results are showing, clear them first
                 if search_results.is_some() {
                     last_search = search_results.take();
                     needs_redraw = true;
@@ -94,35 +90,41 @@ pub fn event_loop(
 
             ScrollLine(dir) => {
                 let delta = if matches!(dir, Up) { -1 } else { 1 };
-                needs_redraw = ui.scroll_by(delta, json.visible_line_count());
+                needs_redraw = ui.scroll_y_by(delta, json.visible_line_count());
             }
             ScrollHalf(dir) => {
                 let half = (ui.body_height() / 2).max(1) as isize;
                 let delta = if matches!(dir, Up) { -half } else { half };
-                needs_redraw = ui.scroll_by(delta, json.visible_line_count());
+                needs_redraw = ui.scroll_y_by(delta, json.visible_line_count());
             }
             ScrollFull(dir) => {
                 let full = ui.body_height().max(1) as isize;
                 let delta = if matches!(dir, Up) { -full } else { full };
-                needs_redraw = ui.scroll_by(delta, json.visible_line_count());
+                needs_redraw = ui.scroll_y_by(delta, json.visible_line_count());
             }
             ScrollTop => {
-                needs_redraw = ui.scroll_to_top();
+                needs_redraw = ui.scroll_y_min();
             }
             ScrollBottom => {
-                needs_redraw = ui.scroll_to_bottom(json.visible_line_count());
+                needs_redraw = ui.scroll_y_max(json.visible_line_count());
             }
             ScrollLeft => {
-                needs_redraw = ui.scroll_x_by(-4);
+                needs_redraw = ui.scroll_x_by(-4, json.width);
             }
             ScrollRight => {
-                needs_redraw = ui.scroll_x_by(4);
+                needs_redraw = ui.scroll_x_by(4, json.width);
+            }
+            ScrollLeftMax => {
+                needs_redraw = ui.scroll_x_min();
+            }
+            ScrollRightMax => {
+                needs_redraw = ui.scroll_x_max(json.width);
             }
 
-            Fold => {
+            ToggleFold => {
                 needs_redraw = json.toggle_fold();
             }
-            FoldAll => {
+            ToggleFoldAll => {
                 needs_redraw = json.toggle_fold_all();
             }
 
@@ -277,13 +279,13 @@ pub fn event_loop(
                     break;
                 }
             }
-            OutputSelection => {
+            OutputSelectionRaw => {
                 if let Some((key, value)) = json.token_value_pair() {
                     output = Some(selection(key, value)?);
                     break;
                 }
             }
-            OutputValue => {
+            OutputValueRaw => {
                 if let Some(value) = json.value() {
                     output = Some(value.to_string());
                     break;
@@ -304,14 +306,14 @@ pub fn event_loop(
                     needs_redraw = true;
                 }
             }
-            CopySelection => {
+            CopySelectionRaw => {
                 if let Some((key, value)) = json.token_value_pair() {
                     clipboard.set_text(selection(key, value)?)?;
                     ui.start_flash(FlashMode::Selection);
                     needs_redraw = true;
                 }
             }
-            CopyValue => {
+            CopyValueRaw => {
                 if let Some(s) = json.value().map(|v| v.to_string()) {
                     clipboard.set_text(s)?;
                     ui.start_flash(FlashMode::Value);

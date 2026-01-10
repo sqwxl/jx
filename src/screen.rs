@@ -28,12 +28,7 @@ impl Screen {
     }
 
     pub fn clear(&mut self) -> anyhow::Result<()> {
-        queue!(
-            self.out,
-            cursor::MoveTo(0, 0),
-            terminal::Clear(crossterm::terminal::ClearType::All),
-            ResetColor,
-        )?;
+        queue!(self.out, cursor::MoveTo(0, 0), ResetColor)?;
 
         Ok(())
     }

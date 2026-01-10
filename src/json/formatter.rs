@@ -147,6 +147,8 @@ impl<'lines, 'pm> Formatter<'lines, 'pm> {
 
             self.extend_line(format_key(&token.as_key().unwrap()));
 
+            self.append_line(format_whitespace(1));
+
             self.format_value(value);
 
             if idx < object.len() - 1 {
@@ -216,7 +218,11 @@ fn format_key(key: &str) -> Vec<StyledString> {
     let json = Value::String(key.to_owned()).to_string();
     let escaped = &json[1..json.len() - 1];
     let key_string = StyledString(escaped.to_owned(), StyleClass::Key);
-    [double_quote(key_string), vec![format_punct(": ")]].concat()
+    [double_quote(key_string), vec![format_punct(":")]].concat()
+}
+
+fn format_whitespace(count: usize) -> StyledString {
+    StyledString(" ".repeat(count), StyleClass::Whitespace)
 }
 
 fn format_string(string: &str) -> StyledString {

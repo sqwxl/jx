@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use crossterm::{
     cursor, queue,
     style::{ContentStyle, Print, PrintStyledContent, ResetColor},
+    terminal,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -32,11 +33,12 @@ pub struct UI {
     screen: Screen,
     header_height: usize,
     pub footer_height: usize,
-    scroll_offset: usize,
     scroll_x: usize,
+    scroll_y: usize,
     line_wrap: bool,
     no_numbers: bool,
     flash_state: Option<(Instant, FlashMode)>,
+    gutter_width: usize,
 }
 
 impl UI {
@@ -45,12 +47,17 @@ impl UI {
             screen: Screen::new()?,
             header_height: 1,
             footer_height: 0,
-            scroll_offset: 0,
             scroll_x: 0,
+            scroll_y: 0,
             line_wrap: false,
             no_numbers,
             flash_state: None,
+            gutter_width: SELECTION_COL_WIDTH,
         })
+    }
+
+    fn usable_content_width(&self) -> usize {
+        self.screen.size.0.saturating_sub(self.gutter_width)
     }
 
     pub fn toggle_line_numbers(&mut self) {
@@ -62,16 +69,6 @@ impl UI {
         self.scroll_x = 0; // Reset horizontal scroll when toggling wrap
     }
 
-    pub fn scroll_x_by(&mut self, delta: isize) -> bool {
-        let old = self.scroll_x;
-        self.scroll_x = if delta < 0 {
-            self.scroll_x.saturating_sub(delta.unsigned_abs())
-        } else {
-            self.scroll_x + delta as usize
-        };
-        self.scroll_x != old
-    }
-
     pub fn body_height(&self) -> usize {
         self.screen
             .size
@@ -79,64 +76,86 @@ impl UI {
             .saturating_sub(self.header_height + self.footer_height)
     }
 
-    pub fn scroll_by(&mut self, delta: isize, max_lines: usize) -> bool {
-        let old = self.scroll_offset;
-        let max_offset = max_lines.saturating_sub(self.screen.size.1 - 1);
-        self.scroll_offset = if delta < 0 {
-            self.scroll_offset.saturating_sub(delta.unsigned_abs())
+    pub fn scroll_x_by(&mut self, dx: isize, max: usize) -> bool {
+        if self.line_wrap {
+            return false;
+        }
+
+        let max_offset = max.saturating_sub(self.usable_content_width());
+
+        let old = self.scroll_x;
+        self.scroll_x = if dx < 0 {
+            self.scroll_x.saturating_sub(dx.unsigned_abs())
         } else {
-            (self.scroll_offset + delta as usize).min(max_offset)
+            (self.scroll_x + dx as usize).min(max_offset)
         };
-        self.scroll_offset != old
+        self.scroll_x != old
     }
 
-    pub fn scroll_to_top(&mut self) -> bool {
-        let old = self.scroll_offset;
-        self.scroll_offset = 0;
-        self.scroll_offset != old
+    pub fn scroll_y_by(&mut self, dy: isize, max_lines: usize) -> bool {
+        let old = self.scroll_y;
+        let max_offset = max_lines.saturating_sub(self.screen.size.1 - 1);
+        self.scroll_y = if dy < 0 {
+            self.scroll_y.saturating_sub(dy.unsigned_abs())
+        } else {
+            (self.scroll_y + dy as usize).min(max_offset)
+        };
+        self.scroll_y != old
     }
 
-    pub fn scroll_to_bottom(&mut self, max_lines: usize) -> bool {
-        let old = self.scroll_offset;
-        self.scroll_offset = max_lines.saturating_sub(self.body_height());
-        self.scroll_offset != old
+    pub fn scroll_x_min(&mut self) -> bool {
+        let old = self.scroll_x;
+        self.scroll_x = 0;
+
+        self.scroll_y != old
+    }
+
+    pub fn scroll_x_max(&mut self, max: usize) -> bool {
+        self.scroll_x_by(max as isize, max)
+    }
+
+    pub fn scroll_y_min(&mut self) -> bool {
+        let old = self.scroll_y;
+        self.scroll_y = 0;
+
+        self.scroll_y != old
+    }
+
+    pub fn scroll_y_max(&mut self, max_lines: usize) -> bool {
+        let old = self.scroll_y;
+        self.scroll_y = max_lines.saturating_sub(self.body_height());
+
+        self.scroll_y != old
     }
 
     pub fn ensure_visible(&mut self, bounds: (usize, usize)) {
-        if bounds.0 <= self.scroll_offset {
-            self.scroll_offset = bounds.0;
-        } else if bounds.1 >= self.scroll_offset + self.body_height() {
-            self.scroll_offset = bounds.1.saturating_sub(self.body_height() - 1);
+        if bounds.0 <= self.scroll_y {
+            self.scroll_y = bounds.0;
+        } else if bounds.1 >= self.scroll_y + self.body_height() {
+            self.scroll_y = bounds.1.saturating_sub(self.body_height() - 1);
         }
     }
 
-    /// Scrolls horizontally to show a match, scrolling as far left as possible while keeping match visible
+    /// Scrolls horizontally to show a match, as far left as possible while keeping match visible from start
     pub fn ensure_x_visible(&mut self, col: usize, width: usize) {
         if self.line_wrap {
             return;
         }
-        // Account for selection bar taking 1 column
-        let usable_width = self.screen.size.0.saturating_sub(1);
+        let usable_width = self.usable_content_width();
         let match_end = col + width;
-        let visible_end = self.scroll_x + usable_width;
 
-        if match_end > visible_end {
-            // Match is off-screen to the right - scroll right minimally to show it
-            if width >= usable_width {
-                self.scroll_x = col;
-            } else {
-                self.scroll_x = match_end.saturating_sub(usable_width);
-            }
-        } else if col < self.scroll_x {
-            // Match is off-screen to the left - scroll left to show it
-            // Go as far left as possible while keeping match visible
-            if width >= usable_width {
-                self.scroll_x = col;
-            } else {
-                self.scroll_x = match_end.saturating_sub(usable_width);
-            }
+        // Check if match is already fully visible
+        if col >= self.scroll_x && match_end <= self.scroll_x + usable_width {
+            return;
         }
-        // Otherwise match is already visible, don't scroll
+
+        if width >= usable_width {
+            // Match larger than screen - show from start
+            self.scroll_x = col;
+        } else {
+            // Position match at right edge of viewport (maximizes leftward scroll)
+            self.scroll_x = match_end.saturating_sub(usable_width);
+        }
     }
 
     pub fn resize(&mut self, size: (usize, usize)) -> bool {
@@ -215,10 +234,10 @@ impl UI {
 
         let header = format!("{fp:<width$}", width = self.screen.size.0);
 
-        queue!(self.screen.out, cursor::MoveToColumn(0), ResetColor)?;
-
         queue!(
             self.screen.out,
+            cursor::MoveTo(0, 0),
+            ResetColor,
             PrintStyledContent(styled(STYLE_HEADER, &header))
         )?;
 
@@ -245,11 +264,12 @@ impl UI {
         };
 
         let gutter_width = SELECTION_COL_WIDTH + col_numbers_w;
+        self.gutter_width = gutter_width;
 
         let col_numbers = offset.0;
         let col_selection = col_numbers + col_numbers_w;
         let col_json = gutter_width;
-        let col_max = size.0.saturating_sub(col_json);
+        let col_max = size.0.saturating_sub(col_json) + self.scroll_x;
 
         while let Some(StyledLine {
             line_number,
@@ -262,7 +282,7 @@ impl UI {
             let fold_data = is_folded.then(|| json.pointer_map.get(pointer).unwrap());
 
             // Skip lines before scroll_offset
-            if visible_line < self.scroll_offset {
+            if visible_line < self.scroll_y {
                 visible_line += 1;
                 line_idx = if let Some(data) = fold_data {
                     data.bounds.1 + 1
@@ -276,6 +296,13 @@ impl UI {
             if cursor_y >= offset.1 + size.1 {
                 break;
             }
+
+            // Clear line before rendering
+            queue!(
+                self.screen.out,
+                cursor::MoveTo(0, cursor_y as u16),
+                terminal::Clear(terminal::ClearType::CurrentLine)
+            )?;
 
             if !self.no_numbers {
                 let line_num_str = format!("{:>width$} ", line_number + 1, width = col_numbers_w);
@@ -335,7 +362,7 @@ impl UI {
                 }
                 line_idx = bounds.1 + 1;
             } else {
-                // Find continuation column (after ": " for object entries)
+                // Find continuation column (after ":" for object entries)
                 let mut continuation_col = *indent;
                 let mut found_colon = false;
                 for el in elements.iter() {
@@ -343,7 +370,7 @@ impl UI {
                         break;
                     }
                     continuation_col += el.0.chars().count();
-                    if el.0 == ": " {
+                    if el.0 == ":" {
                         found_colon = true;
                     }
                 }
@@ -351,10 +378,10 @@ impl UI {
                     continuation_col = *indent;
                 }
 
-                // Find index of first value element (after ": " separator) for Value flash mode
+                // Find index of first value element (after ":" separator) for Value flash mode
                 let value_start_idx = elements
                     .iter()
-                    .position(|el| el.0 == ": ")
+                    .position(|el| el.0 == ":")
                     .map(|i| i + 1)
                     .unwrap_or(0);
 
@@ -381,7 +408,7 @@ impl UI {
                         match flash_mode {
                             Some(FlashMode::Selection) => true,
                             Some(FlashMode::Value) => {
-                                // On first line, only flash value elements (after ": ")
+                                // On first line, only flash value elements (after ":")
                                 // On other lines, flash everything
                                 *line_number != selection_bounds.0 || elem_idx >= value_start_idx
                             }
@@ -395,8 +422,11 @@ impl UI {
                             if col >= col_max {
                                 cursor_y += 1;
                                 col = continuation_col;
+                                // Clear the continuation row
                                 queue!(
                                     self.screen.out,
+                                    cursor::MoveTo(0, cursor_y as u16),
+                                    terminal::Clear(terminal::ClearType::CurrentLine),
                                     cursor::MoveTo((col + gutter_width) as u16, cursor_y as u16)
                                 )?;
                             }
@@ -442,6 +472,17 @@ impl UI {
             visible_line += 1;
             cursor_y += 1;
         }
+
+        // Clear remaining lines in body area
+        let body_end = offset.1 + size.1;
+        for row in cursor_y..body_end {
+            queue!(
+                self.screen.out,
+                cursor::MoveTo(0, row as u16),
+                terminal::Clear(terminal::ClearType::CurrentLine)
+            )?;
+        }
+
         Ok(())
     }
 
@@ -458,6 +499,7 @@ impl UI {
         queue!(
             self.screen.out,
             cursor::MoveTo(0, footer_y as u16),
+            terminal::Clear(terminal::ClearType::CurrentLine),
             ResetColor
         )?;
 
