@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/sqwxl/jx/compare/v0.5.13...v0.6.0) - 2026-01-10
+
+### Added
+
+- [**breaking**] large refactor; fix x scrolling
+
+### Other
+
+- rename stuff; improve key mappings
+- update readme
+
 ## [0.5.13](https://github.com/sqwxl/jx/compare/v0.5.12...v0.5.13) - 2026-01-10
 
 ### Added
