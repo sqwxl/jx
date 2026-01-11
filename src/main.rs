@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 use std::fs::File;
-use std::io::{self, stdin, BufReader};
+use std::io::{self, stdin, BufReader, IsTerminal};
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use anyhow::Context;
+use arboard::Clipboard;
 use clap::Parser;
 use crossterm::{
     cursor,
@@ -16,6 +17,12 @@ use crossterm::{
 
 use crate::json::Json;
 use crate::style::set_no_color;
+
+pub enum InputSource {
+    File(PathBuf),
+    Stdin,
+    Clipboard,
+}
 
 mod events;
 mod help;
@@ -49,9 +56,9 @@ fn main() -> anyhow::Result<()> {
     setup_panic_hook();
 
     let result = (|| -> anyhow::Result<Option<String>> {
-        let json = parse_input(&args)?;
+        let (json, source) = parse_input(&args)?;
 
-        run::event_loop(&args.path, json, args.no_numbers)
+        run::event_loop(&source, json, args.no_numbers)
     })()
     .transpose();
 
@@ -67,24 +74,34 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Parses input from a file or stdin and returns runtime structs.
-fn parse_input(args: &Args) -> anyhow::Result<Json> {
-    let value: serde_json::Value = if let Some(ref path) = args.path {
+/// Parses input from a file, stdin, or clipboard and returns runtime structs.
+fn parse_input(args: &Args) -> anyhow::Result<(Json, InputSource)> {
+    let (value, source): (serde_json::Value, InputSource) = if let Some(ref path) = args.path {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
-        serde_json::from_reader(reader)
-            .context(format!("Error parsing JSON from file {}.", path.display()))?
-    } else {
+        let value = serde_json::from_reader(reader)
+            .context(format!("Error parsing JSON from file {}.", path.display()))?;
+        (value, InputSource::File(path.clone()))
+    } else if !stdin().is_terminal() {
         let stdin = stdin();
         let reader = stdin.lock();
 
-        serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?
+        let value = serde_json::from_reader(reader).context("Error parsing JSON from stdin.")?;
+        (value, InputSource::Stdin)
+    } else {
+        let mut clipboard = Clipboard::new().context("Failed to access clipboard.")?;
+        let text = clipboard
+            .get_text()
+            .context("Failed to read from clipboard.")?;
+
+        let value = serde_json::from_str(&text).context("Error parsing JSON from clipboard.")?;
+        (value, InputSource::Clipboard)
     };
 
     let json = Json::from(Rc::new(value));
 
-    Ok(json)
+    Ok((json, source))
 }
 
 /// Sets up a hook that will restore the terminal on panic.

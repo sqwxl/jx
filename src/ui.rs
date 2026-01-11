@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crossterm::{
@@ -23,6 +22,7 @@ use crate::{
         STYLE_SEARCH_MATCH, STYLE_SEARCH_MATCH_CURRENT, STYLE_SEARCH_PROMPT, STYLE_SEARCH_STATUS,
         STYLE_SELECTION_BAR,
     },
+    InputSource,
 };
 
 static SELECTION_SYM: &str = "┃";
@@ -195,7 +195,7 @@ impl UI {
 
     pub fn render(
         &mut self,
-        filepath: &Option<PathBuf>,
+        source: &InputSource,
         json: &Json,
         search_input: Option<&str>,
         search_results: Option<&SearchResults>,
@@ -203,7 +203,7 @@ impl UI {
     ) -> anyhow::Result<()> {
         self.screen.clear()?;
 
-        self.render_header(filepath)?;
+        self.render_header(source)?;
         let body_height = self.screen.size.1 - self.header_height - self.footer_height;
         self.render_body(
             json,
@@ -220,19 +220,21 @@ impl UI {
         self.screen.print()
     }
 
-    fn render_header(&mut self, filepath: &Option<PathBuf>) -> anyhow::Result<()> {
-        let fp = if let Some(path) = filepath {
-            let path = format!("{}", path.display());
-            if path.len() > self.screen.size.0 {
-                path[..self.screen.size.0].to_owned()
-            } else {
-                path.clone()
+    fn render_header(&mut self, source: &InputSource) -> anyhow::Result<()> {
+        let label = match source {
+            InputSource::File(path) => {
+                let path = format!("{}", path.display());
+                if path.len() > self.screen.size.0 {
+                    path[..self.screen.size.0].to_owned()
+                } else {
+                    path
+                }
             }
-        } else {
-            "stdin".to_string()
+            InputSource::Stdin => "stdin".to_string(),
+            InputSource::Clipboard => "clipboard".to_string(),
         };
 
-        let header = format!("{fp:<width$}", width = self.screen.size.0);
+        let header = format!("{label:<width$}", width = self.screen.size.0);
 
         queue!(
             self.screen.out,

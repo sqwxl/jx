@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use arboard::Clipboard;
 use serde_json::{to_string_pretty, Value};
 
@@ -7,10 +5,11 @@ use crate::events::{read_event, Action::*, Direction::*};
 use crate::json::Json;
 use crate::search::{perform_search, SearchResults};
 use crate::ui::{FlashMode, UI};
+use crate::InputSource;
 
 /// Starts the main loop responsible for listening to user events and triggering UI updates.
 pub fn event_loop(
-    filepath: &Option<PathBuf>,
+    source: &InputSource,
     mut json: Json,
     no_numbers: bool,
 ) -> anyhow::Result<Option<String>> {
@@ -29,7 +28,7 @@ pub fn event_loop(
     let mut help_visible = false;
 
     ui.render(
-        filepath,
+        source,
         &json,
         search_input.as_deref(),
         search_results.as_ref(),
@@ -51,7 +50,7 @@ pub fn event_loop(
             None => {
                 if ui.clear_flash_if_expired() {
                     ui.render(
-                        filepath,
+                        source,
                         &json,
                         search_input.as_deref(),
                         search_results.as_ref(),
@@ -344,7 +343,7 @@ pub fn event_loop(
 
         if needs_redraw {
             ui.render(
-                filepath,
+                source,
                 &json,
                 search_input.as_deref(),
                 search_results.as_ref(),
