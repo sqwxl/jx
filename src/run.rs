@@ -75,8 +75,8 @@ pub fn event_loop(
                 }
             }
 
-            Move(direction) => {
-                needs_redraw = match direction {
+            Move(dir) => {
+                needs_redraw = match dir {
                     Up => json.go_prev(),
                     Down => json.go_next(),
                     Left => json.go_out(),
@@ -89,6 +89,10 @@ pub fn event_loop(
 
             ScrollLine(dir) => {
                 let delta = if matches!(dir, Up) { -1 } else { 1 };
+                needs_redraw = ui.scroll_y_by(delta, json.visible_line_count());
+            }
+            MouseScroll(dir) => {
+                let delta = if matches!(dir, Up) { -3 } else { 3 };
                 needs_redraw = ui.scroll_y_by(delta, json.visible_line_count());
             }
             ScrollHalf(dir) => {

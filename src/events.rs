@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{
+    self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+};
 
 pub enum Direction {
     Up,
@@ -48,6 +50,7 @@ pub enum Action {
     CopyValueRaw,
     ToggleLineNumbers,
     ToggleLineWrapping,
+    MouseScroll(Direction),
     Ignore,
 }
 
@@ -139,6 +142,12 @@ pub fn read_event(
                 }
             }
         }
+
+        Event::Mouse(MouseEvent { kind, .. }) => match kind {
+            MouseEventKind::ScrollUp => MouseScroll(Direction::Up),
+            MouseEventKind::ScrollDown => MouseScroll(Direction::Down),
+            _ => Ignore,
+        },
 
         _ => Ignore,
     };

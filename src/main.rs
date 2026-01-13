@@ -10,7 +10,10 @@ use arboard::Clipboard;
 use clap::Parser;
 use crossterm::{
     cursor,
-    event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
+    event::{
+        DisableMouseCapture, EnableMouseCapture, KeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    },
     execute, queue,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -131,7 +134,7 @@ fn prepare_terminal() -> anyhow::Result<()> {
 
     execute!(stdout, cursor::Hide)?;
 
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
     if supports_keyboard_enhancement() {
         queue!(
@@ -154,7 +157,12 @@ fn restore_terminal() -> io::Result<()> {
         queue!(stdout, PopKeyboardEnhancementFlags)?;
     }
 
-    execute!(stdout, cursor::Show, LeaveAlternateScreen)?;
+    execute!(
+        stdout,
+        cursor::Show,
+        DisableMouseCapture,
+        LeaveAlternateScreen
+    )?;
 
     disable_raw_mode()
 }
