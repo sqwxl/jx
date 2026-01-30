@@ -154,6 +154,9 @@ impl Json {
             .value()
             .is_some_and(|v| !v.is_object() && !v.is_array())
         {
+            if self.go_out() {
+                return self.toggle_fold();
+            }
             return false;
         }
 
@@ -227,6 +230,8 @@ impl Json {
         if let Some(s) = self.prev_sibling() {
             self.pointer.reset_cursor(&s);
             true
+        } else if self.go_out() {
+            self.go_prev()
         } else {
             false
         }
@@ -236,6 +241,8 @@ impl Json {
         if let Some(s) = self.next_sibling() {
             self.pointer.reset_cursor(&s);
             true
+        } else if self.go_out() {
+            self.go_next()
         } else {
             false
         }
