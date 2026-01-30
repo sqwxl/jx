@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1](https://github.com/sqwxl/jx/compare/v0.8.0...v0.8.1) - 2026-01-30
+
+### Added
+
+- navigate to parent siblings and fold nearest ancestor
+
 ## [0.8.0](https://github.com/sqwxl/jx/compare/v0.7.0...v0.8.0) - 2026-01-13
 
 ### Added
